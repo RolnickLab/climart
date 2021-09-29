@@ -1,0 +1,515 @@
+{
+	"feature_by_var": {
+		"globals": {
+			"cszrow": {
+				"start": 0,
+				"end": 1
+			},
+			"gtrow": {
+				"start": 1,
+				"end": 2
+			},
+			"pressg": {
+				"start": 2,
+				"end": 3
+			},
+			"oztop": {
+				"start": 3,
+				"end": 4
+			},
+			"emisrow": {
+				"start": 4,
+				"end": 5
+			},
+			"salbrol": {
+				"start": 5,
+				"end": 9
+			},
+			"csalrol": {
+				"start": 9,
+				"end": 13
+			},
+			"emisrot": {
+				"start": 13,
+				"end": 19
+			},
+			"gtrot": {
+				"start": 19,
+				"end": 25
+			},
+			"farerot": {
+				"start": 25,
+				"end": 31
+			},
+			"salbrot": {
+				"start": 31,
+				"end": 55
+			},
+			"csalrot": {
+				"start": 55,
+				"end": 79
+			},
+			"x_cord": {
+				"start": 79,
+				"end": 80
+			},
+			"y_cord": {
+				"start": 80,
+				"end": 81
+			},
+			"z_cord": {
+				"start": 81,
+				"end": 82
+			}
+		},
+		"levels": {
+			"shtj": {
+				"start": 0,
+				"end": 1
+			},
+			"tfrow": {
+				"start": 1,
+				"end": 2
+			},
+			"level_pressure": {
+				"start": 2,
+				"end": 3
+			},
+			"height": {
+				"start": 3,
+				"end": 4
+			}
+		},
+		"layers": {
+			"shj": {
+				"start": 0,
+				"end": 1
+			},
+			"tlayer": {
+				"start": 1,
+				"end": 2
+			},
+			"layer_pressure": {
+				"start": 2,
+				"end": 3
+			},
+			"ozphs": {
+				"start": 3,
+				"end": 4
+			},
+			"qc": {
+				"start": 4,
+				"end": 5
+			},
+			"dz": {
+				"start": 5,
+				"end": 6
+			},
+			"dshj": {
+				"start": 6,
+				"end": 7
+			},
+			"co2rox": {
+				"start": 7,
+				"end": 8
+			},
+			"ch4rox": {
+				"start": 8,
+				"end": 9
+			},
+			"n2orox": {
+				"start": 9,
+				"end": 10
+			},
+			"f11rox": {
+				"start": 10,
+				"end": 11
+			},
+			"f12rox": {
+				"start": 11,
+				"end": 12
+			},
+			"layer_thickness": {
+				"start": 12,
+				"end": 13
+			},
+			"temp_diff": {
+				"start": 13,
+				"end": 14
+			},
+			"rhc": {
+				"start": 14,
+				"end": 15
+			},
+			"aerin": {
+				"start": 15,
+				"end": 24
+			},
+			"sw_ext_sa": {
+				"start": 24,
+				"end": 28
+			},
+			"sw_ssa_sa": {
+				"start": 28,
+				"end": 32
+			},
+			"sw_g_sa": {
+				"start": 32,
+				"end": 36
+			},
+			"lw_abs_sa": {
+				"start": 36,
+				"end": 45
+			}
+		},
+		"outputs_pristine": {
+			"rldc": {
+				"start": 0,
+				"end": 50
+			},
+			"rluc": {
+				"start": 0,
+				"end": 50
+			},
+			"rsdc": {
+				"start": 0,
+				"end": 50
+			},
+			"rsuc": {
+				"start": 0,
+				"end": 50
+			},
+			"hrlc": {
+				"start": 0,
+				"end": 49
+			},
+			"hrsc": {
+				"start": 0,
+				"end": 49
+			}
+		},
+		"outputs_clear_sky": {
+			"rldc": {
+				"start": 0,
+				"end": 50
+			},
+			"rluc": {
+				"start": 0,
+				"end": 50
+			},
+			"rsdc": {
+				"start": 0,
+				"end": 50
+			},
+			"rsuc": {
+				"start": 0,
+				"end": 50
+			},
+			"hrlc": {
+				"start": 0,
+				"end": 49
+			},
+			"hrsc": {
+				"start": 0,
+				"end": 49
+			}
+		},
+		"outputs_all_sky": {
+			"rld": {
+				"start": 0,
+				"end": 50
+			},
+			"rlu": {
+				"start": 0,
+				"end": 50
+			},
+			"rsd": {
+				"start": 0,
+				"end": 50
+			},
+			"rsu": {
+				"start": 0,
+				"end": 50
+			},
+			"hrl": {
+				"start": 0,
+				"end": 49
+			},
+			"hrs": {
+				"start": 0,
+				"end": 49
+			}
+		}
+	},
+	"input_dims": {
+		"pristine": {
+			"globals": 82,
+			"layers": 14,
+			"levels": 4
+		},
+		"clear_sky": {
+			"globals": 82,
+			"layers": 45,
+			"levels": 4
+		}
+	},
+	"variables": {
+		"cszrow": {
+			"data_type": "globals",
+			"num_features": 1,
+			"only_clear_sky": false
+		},
+		"shj": {
+			"data_type": "layers",
+			"num_features": 1,
+			"only_clear_sky": false
+		},
+		"shtj": {
+			"data_type": "levels",
+			"num_features": 1,
+			"only_clear_sky": false
+		},
+		"gtrow": {
+			"data_type": "globals",
+			"num_features": 1,
+			"only_clear_sky": false
+		},
+		"tlayer": {
+			"data_type": "layers",
+			"num_features": 1,
+			"only_clear_sky": false
+		},
+		"tfrow": {
+			"data_type": "levels",
+			"num_features": 1,
+			"only_clear_sky": false
+		},
+		"pressg": {
+			"data_type": "globals",
+			"num_features": 1,
+			"only_clear_sky": false
+		},
+		"layer_pressure": {
+			"data_type": "layers",
+			"num_features": 1,
+			"only_clear_sky": false
+		},
+		"level_pressure": {
+			"data_type": "levels",
+			"num_features": 1,
+			"only_clear_sky": false
+		},
+		"oztop": {
+			"data_type": "globals",
+			"num_features": 1,
+			"only_clear_sky": false
+		},
+		"ozphs": {
+			"data_type": "layers",
+			"num_features": 1,
+			"only_clear_sky": false
+		},
+		"qc": {
+			"data_type": "layers",
+			"num_features": 1,
+			"only_clear_sky": false
+		},
+		"dz": {
+			"data_type": "layers",
+			"num_features": 1,
+			"only_clear_sky": false
+		},
+		"dshj": {
+			"data_type": "layers",
+			"num_features": 1,
+			"only_clear_sky": false
+		},
+		"co2rox": {
+			"data_type": "layers",
+			"num_features": 1,
+			"only_clear_sky": false
+		},
+		"ch4rox": {
+			"data_type": "layers",
+			"num_features": 1,
+			"only_clear_sky": false
+		},
+		"n2orox": {
+			"data_type": "layers",
+			"num_features": 1,
+			"only_clear_sky": false
+		},
+		"f11rox": {
+			"data_type": "layers",
+			"num_features": 1,
+			"only_clear_sky": false
+		},
+		"f12rox": {
+			"data_type": "layers",
+			"num_features": 1,
+			"only_clear_sky": false
+		},
+		"f113rox": true,
+		"f114rox": true,
+		"emisrow": {
+			"data_type": "globals",
+			"num_features": 1,
+			"only_clear_sky": false
+		},
+		"salbrol": {
+			"data_type": "globals",
+			"num_features": 4,
+			"only_clear_sky": false
+		},
+		"csalrol": {
+			"data_type": "globals",
+			"num_features": 4,
+			"only_clear_sky": false
+		},
+		"emisrot": {
+			"data_type": "globals",
+			"num_features": 6,
+			"only_clear_sky": false
+		},
+		"gtrot": {
+			"data_type": "globals",
+			"num_features": 6,
+			"only_clear_sky": false
+		},
+		"farerot": {
+			"data_type": "globals",
+			"num_features": 6,
+			"only_clear_sky": false
+		},
+		"salbrot": {
+			"data_type": "globals",
+			"num_features": 24,
+			"only_clear_sky": false
+		},
+		"csalrot": {
+			"data_type": "globals",
+			"num_features": 24,
+			"only_clear_sky": false
+		},
+		"layer_thickness": {
+			"data_type": "layers",
+			"num_features": 1,
+			"only_clear_sky": false
+		},
+		"temp_diff": {
+			"data_type": "layers",
+			"num_features": 1,
+			"only_clear_sky": false
+		},
+		"height": {
+			"data_type": "levels",
+			"num_features": 1,
+			"only_clear_sky": false
+		},
+		"x_cord": {
+			"data_type": "globals",
+			"num_features": 1,
+			"only_clear_sky": false
+		},
+		"y_cord": {
+			"data_type": "globals",
+			"num_features": 1,
+			"only_clear_sky": false
+		},
+		"z_cord": {
+			"data_type": "globals",
+			"num_features": 1,
+			"only_clear_sky": false
+		},
+		"rhc": {
+			"data_type": "layers",
+			"num_features": 1,
+			"only_clear_sky": true
+		},
+		"aerin": {
+			"data_type": "layers",
+			"num_features": 9,
+			"only_clear_sky": true
+		},
+		"sw_ext_sa": {
+			"data_type": "layers",
+			"num_features": 4,
+			"only_clear_sky": true
+		},
+		"sw_ssa_sa": {
+			"data_type": "layers",
+			"num_features": 4,
+			"only_clear_sky": true
+		},
+		"sw_g_sa": {
+			"data_type": "layers",
+			"num_features": 4,
+			"only_clear_sky": true
+		},
+		"lw_abs_sa": {
+			"data_type": "layers",
+			"num_features": 9,
+			"only_clear_sky": true
+		},
+		"rldc": {
+			"data_type": "outputs",
+			"num_features": 50,
+			"only_clear_sky": true
+		},
+		"rluc": {
+			"data_type": "outputs",
+			"num_features": 50,
+			"only_clear_sky": true
+		},
+		"rsdc": {
+			"data_type": "outputs",
+			"num_features": 50,
+			"only_clear_sky": true
+		},
+		"rsuc": {
+			"data_type": "outputs",
+			"num_features": 50,
+			"only_clear_sky": true
+		},
+		"hrlc": {
+			"data_type": "outputs",
+			"num_features": 49,
+			"only_clear_sky": true
+		},
+		"hrsc": {
+			"data_type": "outputs",
+			"num_features": 49,
+			"only_clear_sky": true
+		},
+		"rld": {
+			"data_type": "outputs",
+			"num_features": 50,
+			"only_clear_sky": false
+		},
+		"rlu": {
+			"data_type": "outputs",
+			"num_features": 50,
+			"only_clear_sky": false
+		},
+		"rsd": {
+			"data_type": "outputs",
+			"num_features": 50,
+			"only_clear_sky": false
+		},
+		"rsu": {
+			"data_type": "outputs",
+			"num_features": 50,
+			"only_clear_sky": false
+		},
+		"hrl": {
+			"data_type": "outputs",
+			"num_features": 49,
+			"only_clear_sky": false
+		},
+		"hrs": {
+			"data_type": "outputs",
+			"num_features": 49,
+			"only_clear_sky": false
+		}
+	}
+}
