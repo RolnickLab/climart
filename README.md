@@ -29,7 +29,7 @@ Contact: Venkatesh Ramesh [(venka97 at gmail)](mailto:venka97@gmail.com) or Salv
     <ul>
     <li>Linux and Windows are supported, but we recommend Linux for performance and compatibility reasons.</li>
     <li>NVIDIA GPUs with at least 8 GB of memory and system with 12 GB RAM (More RAM is required if training with --load_train_into_mem option which allows for faster training). We have done all testing and development using NVIDIA V100 GPUs.</li> 
-    <li>64-bit Python >=3.7 and PyTorch >=1.8.1. See [PyTorch](https://pytorch.org/] for install instructions.</li> 
+    <li>64-bit Python >=3.7 and PyTorch >=1.8.1. See [PyTorch](https://pytorch.org/) for install instructions.</li> 
     <li>Python libraries mentioned in ``env.yml`` file, see Getting Started (Need to have miniconda/conda installed).</li> 
     </ul></p>
 </details>
