@@ -10,6 +10,8 @@
 
 ### Using deep learning to optimise radiative transfer calculations.
 
+Preliminary paper to appear at NeurIPS 2021 Datasets Track: https://openreview.net/forum?id=FZBtIpEAb5J
+
 Abstract:   *Numerical simulations of Earth's weather and climate require substantial amounts of computation. This has led to a growing interest in replacing subroutines that explicitly compute physical processes with approximate machine learning (ML) methods that are fast at inference time. Within weather and climate models, atmospheric radiative transfer (RT) calculations are especially expensive.  This has made them a popular target for neural network-based emulators. However, prior work is hard to compare due to the lack of a comprehensive dataset and standardized best practices for ML benchmarking. To fill this gap, we build a large dataset, ClimART, with more than **10 million** samples from present, pre-industrial, and future climate conditions, based on the Canadian Earth System Model.
 ClimART poses several methodological challenges for the ML community, such as multiple out-of-distribution test sets, underlying domain physics, and a trade-off between accuracy and inference speed. We also present several novel baselines that indicate shortcomings of datasets and network architectures used in prior work.*
 
@@ -164,3 +166,15 @@ This work is made available under [Attribution 4.0 International (CC BY 4.0)](ht
 
 This repository is currently under active development and you may encounter bugs with some functionality. 
 Any feedback, extensions & suggestions are welcome!
+
+
+## Citation
+If you find ClimART or this repository helpful, feel free to cite our publication:
+
+    @inproceedings{cachay2021climart,
+        title={{ClimART}: A Benchmark Dataset for Emulating Atmospheric Radiative Transfer in Weather and Climate Models},
+        author={Salva R{\"u}hling Cachay and Venkatesh Ramesh and Jason N. S. Cole and Howard Barker and David Rolnick},
+        booktitle={Thirty-fifth Conference on Neural Information Processing Systems Datasets and Benchmarks Track},
+        year={2021},
+        url={https://openreview.net/forum?id=FZBtIpEAb5J}
+    }
