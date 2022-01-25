@@ -4,7 +4,11 @@ Author: Salva Rühling Cachay
 import logging
 import math
 import os
+import warnings
+import time
+import wandb
 from functools import wraps
+from types import SimpleNamespace
 from typing import Union, Sequence, List, Dict, Optional, Callable
 
 import numpy as np
@@ -13,9 +17,18 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
-
+import pytorch_lightning as pl
+from pytorch_lightning.utilities import rank_zero_only
 from climart.data_wrangling import constants, data_variables
+from climart.utils.naming import get_group_name, get_detailed_name
 
+
+def no_op(*args, **kwargs):
+    pass
+
+
+def get_identity_callable(*args, **kwargs) -> Callable:
+    return identity
 
 def get_activation_function(name: str, functional: bool = False, num: int = 1):
     name = name.lower().strip()
@@ -59,26 +72,211 @@ def identity(X):
     return X
 
 
-def rank_zero_only(fn):
-    @wraps(fn)
-    def wrapped_fn(*args, **kwargs):
-        if rank_zero_only.rank == 0:
-            return fn(*args, **kwargs)
+def print_config(
+        config,
+        fields: Union[str, Sequence[str]] = (
+                "datamodule",
+                "end_model",
+                "trainer",
+                # "callbacks",
+                # "logger",
+                "seed",
+        ),
+        resolve: bool = True,
+) -> None:
+    """Prints content of DictConfig using Rich library and its tree structure.
 
-    return wrapped_fn
+    Credits go to: https://github.com/ashleve/lightning-hydra-template
+
+    Args:
+        config (ConfigDict): Configuration
+        fields (Sequence[str], optional): Determines which main fields from config will
+        be printed and in what order.
+        resolve (bool, optional): Whether to resolve reference fields of DictConfig.
+    """
+    import importlib
+    if not importlib.util.find_spec("rich") or not importlib.util.find_spec("omegaconf"):
+        # no pretty printing
+        return
+    from omegaconf import DictConfig, OmegaConf
+    import rich.syntax
+    import rich.tree
+
+    style = "dim"
+    tree = rich.tree.Tree(":gear: CONFIG", style=style, guide_style=style)
+    if isinstance(fields, str):
+        if fields.lower() == 'all':
+            fields = config.keys()
+        else:
+            fields = [fields]
+
+    for field in fields:
+        branch = tree.add(field, style=style, guide_style=style)
+
+        config_section = config.get(field)
+        branch_content = str(config_section)
+        if isinstance(config_section, DictConfig):
+            branch_content = OmegaConf.to_yaml(config_section, resolve=resolve)
+
+        branch.add(rich.syntax.Syntax(branch_content, "yaml"))
+
+    rich.print(tree)
 
 
-def _get_rank() -> int:
-    rank_keys = ('RANK', 'SLURM_PROCID', 'LOCAL_RANK')
-    for key in rank_keys:
-        rank = os.environ.get(key)
-        if rank is not None:
-            return int(rank)
-    return 0
+def extras(config) -> None:
+    """A couple of optional utilities, controlled by main config file:
+    - disabling warnings
+    - easier access to debug mode
+    - forcing debug friendly configuration
+    - forcing multi-gpu friendly configuration
+
+    Credits go to: https://github.com/ashleve/lightning-hydra-template
+
+    Modifies DictConfig in place.
+    """
+
+    log = get_logger()
+
+    # Create working dir if it does not exist yet
+    if config.get('work_dir'):
+        os.makedirs(name=config.get("work_dir"), exist_ok=True)
+
+    # disable python warnings if <config.ignore_warnings=True>
+    if config.get("ignore_warnings"):
+        log.info("Disabling python warnings! <config.ignore_warnings=True>")
+        warnings.filterwarnings("ignore")
+
+    # set <config.trainer.fast_dev_run=True> if <config.debug=True>
+    if config.get("debug"):
+        log.info("Running in debug mode! <config.debug=True>")
+        config.trainer.fast_dev_run = True
+
+    # force debugger friendly configuration if <config.trainer.fast_dev_run=True>
+    if config.trainer.get("fast_dev_run"):
+        log.info("Forcing debugger friendly configuration! <config.trainer.fast_dev_run=True>")
+        # Debuggers don't like GPUs or multiprocessing
+        if config.trainer.get("gpus"):
+            config.trainer.gpus = 0
+        if config.datamodule.get("pin_memory"):
+            config.datamodule.pin_memory = False
+        if config.datamodule.get("num_workers"):
+            config.datamodule.num_workers = 0
+
+    # force multi-gpu friendly configuration if <config.trainer.accelerator=ddp>
+    accelerator = config.trainer.get("accelerator")
+    if accelerator in ["ddp", "ddp_spawn", "dp", "ddp2"]:
+        log.info(f"Forcing ddp friendly configuration! <config.trainer.accelerator={accelerator}>")
+        if config.datamodule.get("num_workers"):
+            config.datamodule.num_workers = 0
+        if config.datamodule.get("pin_memory"):
+            config.datamodule.pin_memory = False
+
+    if config.logger.get("wandb"):
+        import wandb
+        wandb_id = wandb.util.generate_id()
+        config.logger.wandb.id = wandb_id
+        group_name = get_group_name(config)
+        config.logger.wandb.group = group_name if len(group_name) < 128 else group_name[:128]
+        config.logger.wandb.name = get_detailed_name(config) + '_' + time.strftime('%Hh%Mm_on_%b_%d') + '_' + wandb_id
 
 
-# add the attribute to the function but don't overwrite in case Trainer has already set it
-rank_zero_only.rank = getattr(rank_zero_only, 'rank', _get_rank())
+def get_all_instantiable_hydra_modules(config, module_name: str):
+    from hydra.utils import instantiate as hydra_instantiate
+    modules = []
+    if module_name in config:
+        for _, module_config in config[module_name].items():
+            if "_target_" in module_config:
+                if 'wandb' in module_config._target_:
+                    modules.append(hydra_instantiate(module_config, settings=wandb.Settings(start_method='fork')))
+                modules.append(hydra_instantiate(module_config))
+    return modules
+
+
+def log_hyperparameters(
+        config,
+        model: pl.LightningModule,
+        data_module: pl.LightningDataModule,
+        trainer: pl.Trainer,
+        callbacks: List[pl.Callback],
+) -> None:
+    """This method controls which parameters from Hydra config are saved by Lightning loggers.
+    Credits go to: https://github.com/ashleve/lightning-hydra-template
+
+    Additionally saves:
+        - number of {total, trainable, non-trainable} model parameters
+    """
+
+    def copy_and_ignore_keys(dictionary, *keys_to_ignore):
+        new_dict = dict()
+        for k in dictionary.keys():
+            if k not in keys_to_ignore:
+                new_dict[k] = dictionary[k]
+        return new_dict
+
+    params = dict()
+    if 'seed' in config:
+        params['seed'] = config['seed']
+    if 'model' in config:
+        params['model'] = config['model']
+
+    # Remove redundant keys or those that are not important to know after training -- feel free to edit this!
+    params["datamodule"] = copy_and_ignore_keys(config["datamodule"], 'pin_memory', 'num_workers')
+    params['model'] = config['model']
+    params["trainer"] = copy_and_ignore_keys(config["trainer"])
+    # encoder, optims, and scheduler as separate top-level key
+    params['optim'] = config['model']['optim']
+    params['scheduler'] = config['model']['scheduler'] if 'scheduler' in config['model'] else None
+
+    if "callbacks" in config:
+        if 'model_checkpoint' in config['callbacks']:
+            params["model_checkpoint"] = copy_and_ignore_keys(
+                config["callbacks"]['model_checkpoint'], 'save_top_k'
+            )
+
+    # save number of model parameters
+    params["model/params_total"] = sum(p.numel() for p in model.parameters())
+    params["model/params_trainable"] = sum(
+        p.numel() for p in model.parameters() if p.requires_grad
+    )
+    params["model/params_not_trainable"] = sum(
+        p.numel() for p in model.parameters() if not p.requires_grad
+    )
+
+    # send hparams to all loggers
+    trainer.logger.log_hyperparams(params)
+
+    # disable logging any more hyperparameters for all loggers
+    # this is just a trick to prevent trainer from logging hparams of model,
+    # since we already did that above
+    trainer.logger.log_hyperparams = no_op
+
+def to_dict(obj: Optional[Union[dict, SimpleNamespace]]):
+    if obj is None:
+        return dict()
+    elif isinstance(obj, dict):
+        return obj
+    else:
+        return vars(obj)
+
+def to_DictConfig(obj: Optional[Union[List, Dict]]):
+    from omegaconf import OmegaConf, DictConfig
+
+    if isinstance(obj, DictConfig):
+        return obj
+
+    if isinstance(obj, list):
+        try:
+            dict_config = OmegaConf.from_dotlist(obj)
+        except ValueError as e:
+            dict_config = OmegaConf.create(obj)
+
+    elif isinstance(obj, dict):
+        dict_config = OmegaConf.create(obj)
+
+    else:
+        dict_config = OmegaConf.create()  # empty
+
+    return dict_config
 
 
 def get_logger(name=__name__, level=logging.INFO) -> logging.Logger:
@@ -154,50 +352,7 @@ def set_seed(seed, device='cuda'):
         torch.cuda.manual_seed_all(seed)
 
 
-def get_name(params):
-    ID = params['model'].upper()
-    if 'clear' in params['exp_type']:
-        ID += '_CS'
-    ID += f"_{params['train_years']}train_{params['validation_years']}val"
-    ID += f"_{params['in_normalize'].upper()}"
-    if params['spatial_normalization_in'] and params['spatial_normalization_out']:
-        ID += '+spatialNormed'
-    elif params['spatial_normalization_in']:
-        ID += '+spatialInNormed'
-    elif params['spatial_normalization_out']:
-        ID += '+spatialOutNormed'
-
-    ID += '_' + str(params['seed']) + 'seed'
-    return ID
-
-
-def stem_word(word):
-    return word.lower().strip().replace('-', '').replace('&', '').replace('+', '').replace('_', '')
-
-
-# CanAM specific functions to find out the year corresponding to CanAM snapshots/time steps
-def canam_file_id_to_year_fraction(canam_filename: str) -> float:
-    if '/' in canam_filename:
-        canam_filename = canam_filename.split('/')[-1]
-    ID = canam_filename.replace('CanAM_snapshot_', '').replace('.nc', '')
-    ID = int(ID)
-    year = (ID / (365 * 24 * 4)) + 1
-    return year
-
-
-def get_year_to_canam_files_dict(canam_filenames: Sequence[str]) -> Dict[int, List[str]]:
-    years = [
-        int(math.floor(canam_file_id_to_year_fraction(fname))) for fname in canam_filenames
-    ]
-    mapping = dict()
-    for fname, year in zip(canam_filenames, years):
-        if year not in mapping.keys():
-            mapping[year] = []
-        mapping[year].append(fname)
-    return mapping
-
-
-def year_string_to_list(year_string: str):
+def year_string_to_list(year_string: str) -> List[int]:
     """
     Args:
         year_string (str): must only contain {digits, '-', '+'}.
@@ -206,7 +361,7 @@ def year_string_to_list(year_string: str):
         '1988-1990+2001-2004' will return [1988, 1989, 1990, 2001, 2002, 2003, 2004]
     """
     if not isinstance(year_string, str):
-        return year_string
+        year_string = str(year_string)
 
     def year_string_to_full_year(year_string: str):
         if len(year_string) == 4:
@@ -243,33 +398,6 @@ def year_string_to_list(year_string: str):
     return years
 
 
-def compute_absolute_level_height(dz_layer_heights: xr.DataArray) -> xr.DataArray:
-    """ Call with dz_layer_heights=YourDataset['dz'] """
-    # layers=slice(None, None, -1) or levels=slice(None, None, -1) will simply reverse the data along that dim
-    # Since levels=0 corresponds to TOA, this is needed, so that cumsum correctly accumulates from surface -> TOA
-    surface_to_toa = dz_layer_heights.pad(layers=(0, 1), constant_values=0).sel(layers=slice(None, None, -1))
-    # surface_to_toa[column = i] = [0, d_height_layer1, ..., d_height_lastLayer]
-    level_abs_heights = surface_to_toa.cumsum(dim='layers').rename({'layers': 'levels'})
-    toa_to_surface = level_abs_heights.sel(levels=slice(None, None, -1))  # reverse back to the existing format
-    return toa_to_surface
-
-
-def compute_temperature_diff(level_temps: xr.DataArray) -> xr.DataArray:
-    """
-    Usage:
-        Call with level_temps=YourDataset['tfrow'], assuming that 'tfrow' is the temperature var. at the levels
-
-    Returns:
-        A xr.DataArray with same dimensions as level_temps, except for `levels` being replaced by `layer`.
-        In the layer dimension, it will hold that:
-            layer_i_tempDiff = level_i+1_temp - level_i_temp
-        Note: This means that the temperature at *spatially higher* layers is subtracted from its adjacent lower layer.
-            E.g., the layer next to the surface will get surface - level_one_above_surface
-    """
-    layer_temp_diffs = level_temps.diff(dim='levels', n=1).rename({'levels': 'layers'})
-    return layer_temp_diffs
-
-
 def get_target_types(target_type: Union[str, List[str]]) -> List[str]:
     if isinstance(target_type, list):
         assert all([t in [constants.SHORTWAVE, constants.LONGWAVE] for t in target_type])
@@ -302,15 +430,9 @@ def get_target_variable_names(target_types: Union[str, List[str]],
     target_variable2 = target_variable2.replace('fluxes', 'flux').replace('heatingrate', 'hr')
     target_vars: List[str] = []
     if constants.LONGWAVE in target_types:
-        if 'flux' in target_variable2:
-            target_vars += data_variables.OUT_LONGWAVE_NOCLOUDS
-        if 'hr' in target_variable2:
-            target_vars += [data_variables.LW_HEATING_RATE]
+        target_vars += data_variables.OUT_LONGWAVE_NOCLOUDS + [data_variables.LW_HEATING_RATE]
     if constants.SHORTWAVE in target_types:
-        if 'flux' in target_variable2:
-            target_vars += data_variables.OUT_SHORTWAVE_NOCLOUDS
-        if 'hr' in target_variable2:
-            target_vars += [data_variables.SW_HEATING_RATE]
+        target_vars += data_variables.OUT_SHORTWAVE_NOCLOUDS + [data_variables.SW_HEATING_RATE]
 
     if len(target_vars) == 0:
         raise ValueError(f"Target var `{target_variable2}` must be one of fluxes, heating_rate.")
@@ -339,6 +461,46 @@ def get_target_variable(target_variable: Union[str, List[str]]) -> List[str]:
     return target_vars
 
 
-def get_exp_ID(exp_type: str, target_types: Union[str, List[str]], target_variables: Union[str, List[str]]):
-    s = f"{exp_type.upper()} conditions, with {' '.join(target_types)} x {' '.join(target_variables)} targets"
-    return s
+def pressure_from_level_array(levels_array):
+    PRESSURE_IDX = 2
+    return levels_array[..., PRESSURE_IDX]
+
+
+def fluxes_to_heating_rates(upwelling_flux: Union[np.ndarray, Tensor],
+                            downwelling_flux: Union[np.ndarray, Tensor],
+                            pressure: Union[np.ndarray, Tensor],
+                            c: float = 9.761357e-03
+                            ) -> Union[np.ndarray, Tensor]:
+    """
+    N - the batch/data dimension size
+    L - the number of levels (= number of layers + 1)
+
+    Args:
+     upwelling_flux: a (N, L) array
+     downwelling_flux: a (N, L) array
+     pressure: a (N, L) array representing the levels pressure
+            or a (N, L, D-lev) array containing *all* level variables (including pressure)
+
+    Returns:
+        A (N, L-1) array representing the heating rates at each of the L-1 layers
+    """
+    assert upwelling_flux.shape == downwelling_flux.shape
+    if len(pressure.shape) <= 2:
+        err_msg = f"pressure arg has not the expected shape (N, #levels), but has shape {pressure.shape}"
+        assert downwelling_flux.shape == pressure.shape, err_msg
+    else:
+        err_msg = "pressure argument is not the expected levels array of shape (N, #levels, #level-vars)"
+        assert len(pressure.shape) == 3, err_msg
+        pressure = pressure_from_level_array(pressure)
+
+    c = 9.761357e-03  # 9.76 * 1e-5
+    # c_p = 1004.98322108, g = 9.81, c = g/c_p
+    # 3D radiative effects paper uses 8.91/1004 = 0.00977091633
+    net_level_flux = upwelling_flux - downwelling_flux
+    net_layer_flux = net_level_flux[:, 1:] - net_level_flux[:, :-1]
+    pressure_diff = pressure[:, 1:] - pressure[:, :-1]
+    heating_rate = c * net_layer_flux / pressure_diff
+
+    assert tuple(heating_rate.shape) == (pressure.shape[0], pressure.shape[1] - 1)
+
+    return heating_rate

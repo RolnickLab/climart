@@ -8,7 +8,7 @@ setup(
     name='climart',
     version='0.1.0',
     packages=find_packages(),
-    url='https://github.com/Venka97/climART',
+    url='https://github.com/RolnickLab/climart',
     license='CC BY 4.0',
     author='Salva Rühling Cachay, Venkatesh Ramesh',
     author_email='',

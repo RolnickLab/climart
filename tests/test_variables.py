@@ -1,4 +1,4 @@
-from rtml.data_wrangling.data_variables import INPUT_VARS_CLOUDS, INPUT_VARS_AEROSOLS, _ALL_INPUT_VARS
+from climart.data_wrangling.data_variables import INPUT_VARS_CLOUDS, INPUT_VARS_AEROSOLS, _ALL_INPUT_VARS
 
 
 def exp_type_subset_vars_test():

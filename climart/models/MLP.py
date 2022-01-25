@@ -3,17 +3,21 @@ from typing import Sequence, Optional, Dict, Union
 import numpy as np
 import torch
 import torch.nn as nn
+from omegaconf import DictConfig
 from torch import Tensor
-from climart.models.base_model import BaseModel, BaseTrainer
+
+from climart.data_wrangling.constants import get_data_dims
+from climart.models.base_model import BaseModel
 from climart.utils.utils import get_activation_function, get_normalization_layer
 
 
 class MLPNet(BaseModel):
     def __init__(self,
-                 input_dim: Union[Dict[str, int], int],
                  hidden_dims: Sequence[int],
-                 out_dim: int,
-                 spatial_dim: Optional[Dict[str, int]] = None,
+                 input_dim: Union[Dict[str, int], int] = None,
+                 output_dim: int = None,
+             #    spatial_dim: Optional[Dict[str, int]] = None,
+                 datamodule_config: DictConfig = None,
                  net_normalization: Optional[str] = None,
                  activation_function: str = 'relu',
                  dropout: float = 0.0,
@@ -29,34 +33,39 @@ class MLPNet(BaseModel):
                 If a string is passed, is must be the name of the desired output activation (e.g. 'softmax')
                 If True, the same activation function is used as defined by the arg `activation_function`.
         """
-        super().__init__(*args, **kwargs)
-        self.net_norm = net_normalization.lower() if isinstance(net_normalization, str) else 'none'
-        self.out_size = out_dim
-        self.residual = residual
-        if isinstance(input_dim, dict):
-            assert all([k in spatial_dim.keys() for k in input_dim.keys()])
-            input_dim = sum([input_dim[k] * max(1, spatial_dim[k]) for k in input_dim.keys()])  # flattened
-            self.log.info(f' Inferred a flattened input dim = {input_dim}')
+        super().__init__(datamodule_config=datamodule_config, *args, **kwargs)
+        self.save_hyperparameters()
+
+        if input_dim is not None:
+            self.input_dim = input_dim
+        elif isinstance(self.raw_input_dim, dict):
+            assert all([k in self.raw_spatial_dim.keys() for k in self.raw_input_dim.keys()])
+            self.input_dim = sum([self.raw_input_dim[k] * max(1, self.raw_spatial_dim[k]) for k in self.raw_input_dim.keys()])  # flattened
+            self.log_text.info(f' Inferred a flattened input dim = {self.input_dim}')
+        else:
+            self.input_dim = self.raw_input_dim
+
+        self.output_dim = output_dim or self.raw_output_dim
         hidden_layers = []
-        dims = [input_dim] + list(hidden_dims)
+        dims = [self.input_dim] + list(hidden_dims)
         for i in range(1, len(dims)):
             hidden_layers += [MLP_Block(
                 in_dim=dims[i - 1],
                 out_dim=dims[i],
-                net_norm=self.net_norm,
+                net_norm=net_normalization.lower() if isinstance(net_normalization, str) else 'none',
                 activation_function=activation_function,
                 dropout=dropout,
                 residual=residual
             )]
         self.hidden_layers = nn.ModuleList(hidden_layers)
 
-        out_weight = nn.Linear(dims[-1], self.out_size, bias=True)
+        out_weight = nn.Linear(dims[-1], self.output_dim, bias=True)
         if self.out_layer_bias_init is not None:
-            self.log.info(' Pre-initializing the MLP final/output layer bias.')
+            self.log_text.info(' Pre-initializing the MLP final/output layer bias.')
             out_weight.bias.data = self.out_layer_bias_init
         out_layer = [out_weight]
-        if output_normalization and self.net_norm != 'none':  # in ['layer_norm', 'batch_norm']:
-            out_layer += [get_normalization_layer(self.net_norm, self.out_size)]
+        if output_normalization and self.hparams.net_normalization != 'none':  # in ['layer_norm', 'batch_norm']:
+            out_layer += [get_normalization_layer(self.hparams.net_normalization, self.output_dim)]
         if output_activation_function is not None and output_activation_function:
             if isinstance(output_activation_function, bool):
                 output_activation_function = activation_function
@@ -109,14 +118,3 @@ class MLP_Block(nn.Module):
         if self.residual:
             X_out += X
         return X_out
-
-
-class MLP_Trainer(BaseTrainer):
-    def __init__(
-            self, model_params, name='MLP', seed=None, verbose=False, model_dir="out/MLP",
-            notebook_mode=False, model=None, output_normalizer=None, *args, **kwargs
-    ):
-        super().__init__(model_params, name=name, seed=seed, verbose=verbose, output_normalizer=output_normalizer,
-                         model_dir=model_dir, notebook_mode=notebook_mode, model=model, *args, **kwargs)
-        self.model_class = MLPNet
-        self.name = name

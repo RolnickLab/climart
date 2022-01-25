@@ -1,6 +1,8 @@
 # ***ClimART*** - A Benchmark Dataset for Emulating Atmospheric Radiative Transfer in Weather and Climate Models
 <a href="https://pytorch.org/get-started/locally/"><img alt="Python" src="https://img.shields.io/badge/-Python 3.7--3.9-blue?style=for-the-badge&logo=python&logoColor=white"></a>
 <a href="https://pytorch.org/get-started/locally/"><img alt="PyTorch" src="https://img.shields.io/badge/-PyTorch 1.8.1+-ee4c2c?style=for-the-badge&logo=pytorch&logoColor=white"></a>
+<a href="https://pytorchlightning.ai/"><img alt="Lightning" src="https://img.shields.io/badge/-Lightning-792ee5?style=for-the-badge&logo=pytorchlightning&logoColor=white"></a>
+<a href="https://hydra.cc/"><img alt="Config: hydra" src="https://img.shields.io/badge/config-hydra-89b8cd?style=for-the-badge&labelColor=gray"></a>
 ![CC BY 4.0][cc-by-image]
 
 [cc-by-image]: https://i.creativecommons.org/l/by/4.0/88x31.png
@@ -15,7 +17,7 @@ Our NeurIPS 2021 Datasets Track paper: https://arxiv.org/abs/2111.14671
 Abstract:   *Numerical simulations of Earth's weather and climate require substantial amounts of computation. This has led to a growing interest in replacing subroutines that explicitly compute physical processes with approximate machine learning (ML) methods that are fast at inference time. Within weather and climate models, atmospheric radiative transfer (RT) calculations are especially expensive.  This has made them a popular target for neural network-based emulators. However, prior work is hard to compare due to the lack of a comprehensive dataset and standardized best practices for ML benchmarking. To fill this gap, we build a large dataset, ClimART, with more than **10 million** samples from present, pre-industrial, and future climate conditions, based on the Canadian Earth System Model.
 ClimART poses several methodological challenges for the ML community, such as multiple out-of-distribution test sets, underlying domain physics, and a trade-off between accuracy and inference speed. We also present several novel baselines that indicate shortcomings of datasets and network architectures used in prior work.*
 
-Contact: Venkatesh Ramesh [(venka97 at gmail)](mailto:venka97@gmail.com) or Salva Rühling Cachay [(salvaruehling at gmail)](mailto:salvaruehling@gmail.com). <br>
+**Contact:** Venkatesh Ramesh [(venka97 at gmail)](mailto:venka97@gmail.com) or Salva Rühling Cachay [(salvaruehling at gmail)](mailto:salvaruehling@gmail.com). <br>
 
 ## Overview:
 
@@ -38,24 +40,23 @@ Contact: Venkatesh Ramesh [(venka97 at gmail)](mailto:venka97@gmail.com) or Salv
 
 <details><p>
     <summary><b> Downloading the ClimART Dataset </b></summary>
-    <p style="padding: 10px; border: 2px solid red;">
+    <p style="padding: 10px; border: 2px solid #ff0000;">
     By default, only a subset of CLimART is downloaded.
     To download the train/val/test years you want, please change the loop in ``data_download.sh.`` appropriately.
     To download the whole ClimART dataset, you can simply run 
     
-    bash scripts/download_climart_full.sh 
+    bash scripts/download_climart.sh 
    </p>
 </details>
 
 
     conda env create -f env.yml   # create new environment will all dependencies
     conda activate climart  # activate the environment called 'climart'
-    bash data_download.sh  # download the dataset (or a subset of it, see above)
-    # For one of {CNN, GraphNet, GCN, MLP}, run the model with its lowercase name with the following commmand:
-    bash scripts/train_<model-name>.sh
+    bash download_data_subset.sh  # download the dataset (or a subset of it, see above)
+    python run.py trainer.gpus=0 datamodule.training_years="1999"  # train a MLP emulator
 
 
-## Dataset Structure
+## Data Structure
 
 To avoid storage redundancy, we store one single input array for both pristine- and clear-sky conditions. The dimensions of ClimART’s input arrays are:
 <ul>
@@ -70,94 +71,44 @@ where N is the data dimension (i.e. the number of examples of a specific year, o
 For pristine-sky Dlay = 14, while for clear-sky Dlay = 45, since it contains extra aerosol related variables. The array for pristine-sky conditions can be easily accessed by slicing the first 14 features out of the stored array, e.g.:
 ```      pristine_array = layers_array[:, :, : 14] ```
 
-The complete list of variables in the dataset is as follows: </br>
 
-![Variables List](./images/variable_table.png)
+## Baselines
 
-## Training Options
-
+To reproduce our paper results (for seed = 7), you may choose any of our pre-defined configs in the
+ [configs/model](configs/model) folder (for now only mlp) and train it as follows
+ 
+ ```
+# Soon: you can replace mlp with "graphnet", "gcn", or "cnn"
+# To train on the CPU, choose trainer.gpus=0
+python run.py seed=7 model=mlp trainer.gpus=1  
 ```
---exp_type: "pristine" or "clear_sky" for training on the respective atmospheric conditions.
---target_type: "longwave" (thermal) or "shortwave" (solar) for training on the respective radiation type targets.
---target_variable: "Fluxes" or "Heating-rate" for training on profiles of fluxes or heating rates.
---model: ML model architecture to select for training (MLP, GCN, GN, CNN)
---workers: The number of workers to use for dataloading/multi-processing.
---device: "cuda" or "cpu" to use GPUs or not.
---load_train_into_mem: Whether to load the training data into memory (can speed up training)
---load_val_into_mem: Whether to load the validation data into memory (can speed up training)
---lr: The learning rate to use for training.
---epochs: Number of epochs to train the model for.
---optim: The choice of optimizer to use (e.g. Adam)
---scheduler: The learning rate scheduler used for training (expdecay, reducelronplateau, steplr, cosine).
---weight_decay: Weight decay to use for the optimization process.
---batch_size: Batch size for training.
---act: Activation function (e.g. ReLU, GeLU, ...).
---hidden_dims: The hidden dimensionalities to use for the model (e.g. 128 128).
---dropout: Dropout rate to use for parameters.
---loss: Loss function to train the model with (MSE recommended).
---in_normalize: Select how to normalize the data (Z, min_max, None). Z-scaling is recommended.
---net_norm: Normalization scheme to use in the model (batch_norm, layer_norm, instance_norm)
---gradient_clipping: If "norm", the L2-norm of the parameters is clipped the value of --clip. Otherwise no clipping.
---clip: Value to clip the gradient to while training.
---val_metric: Which metric to use for saving the 'best' model based on validation set. Default: "RMSE"
---gap: Use global average pooling in-place of MLP to get output (CNN only).
---learn_edge_structure: If --model=='GCN': Whether to use a L-GCN (if set) with learnable adjacency matrix, or a GCN.
---train_years: The years to select for training the data. (Either individual years 1997+1991 or range 1991-1996)
---validation_years: The years to select for validating the data. Recommended: "2005" or "2005-06" 
---test_ood_1991: Whether to load and test on OOD data from 1991 (Mt. Pinatubo; especially challenging for clear-sky conditions)
---test_ood_historic: Whether to load and test on historic/pre-industrial OOD data from 1850-52.
---test_ood_future: Whether to load and test on future OOD data from 2097-99 (under a changing climate/radiative forcing)
---wandb_model: If "online", Weights&Biases logging. If "disabled" no logging.
---expID: A unique ID for the experiment if using logging.
+ 
+## Tips
 
-```
+<details><p>
+    <summary><b> Reproducibility & Data Generation code </b></summary>
+    <p style="padding: 10px; border: 2px solid #ff0000;">
+    To best reproduce our baselines and experiments and/or look into how the ClimART dataset was created/designed,
+    have a look at our `research_code` branch. It operates on pure PyTorch and has a less clean interface/code 
+    than our main branch -- if you have any questions, let us know!
+</p></details>
 
-## Reproducing our Baselines
 
-To reproduce our paper results (for seed = 7) you may run the following commands in a shell. 
-    
-### CNN
+<details><p>
+    <summary><b> Wandb </b></summary>
+    <p style="padding: 10px; border: 2px solid #ff0000;">
+    If you use Wandb, make sure to select the "Group first prefix" option in the panel settings of the web app.
+    This will make it easier to browse through the logged metrics.
+</p></details>
 
-```
-python main.py --model "CNN" --exp_type "pristine" --target_type "shortwave" --workers 6 --seed 7 \
-  --batch_size 128 --lr 2e-4 --optim Adam --weight_decay 1e-6 --scheduler "expdecay" \
-  --in_normalize "Z" --net_norm "none" --dropout 0.0 --act "GELU" --epochs 100 \
-  --gap --gradient_clipping "norm" --clip 1.0 \
-  --train_years "1990+1999+2003" --validation_years "2005" \
-  --wandb_mode disabled
-```
+<details><p>
+    <summary><b> Credits & Resources </b></summary>
+    <p style="padding: 10px; border: 2px solid #ff0000;">
+    The following template was extremely useful for getting started with the PL+Hydra implementation:
+    [ashleve/lightning-hydra-template](https://github.com/ashleve/lightning-hydra-template)
+</p></details>
 
-### MLP 
 
-```
-python main.py --model "MLP" --exp_type "pristine" --target_type "shortwave" --workers 6 --seed 7 \
-  --batch_size 128 --lr 2e-4 --optim Adam --weight_decay 1e-6 --scheduler "expdecay" \
-  --in_normalize "Z" --net_norm "layer_norm" --dropout 0.0 --act "GELU" --epochs 100 \
-  --gradient_clipping "norm" --clip 1.0 --hidden_dims 512 256 256 \
-  --train_years "1990+1999+2003" --validation_years "2005" \
-  --wandb_mode disabled
-```
-
-### GCN
-
-```
-python main.py --model "GCN+Readout" --exp_type "pristine" --target_type "shortwave" --workers 6 --seed 7 \
-  --batch_size 128 --lr 2e-4 --optim Adam --weight_decay 1e-6 --scheduler "expdecay" \
-  --in_normalize "Z" --net_norm "layer_norm" --dropout 0.0 --act "GELU" --epochs 100 \
-  --preprocessing "mlp_projection" --projector_net_normalization "layer_norm" --graph_pooling "mean"\
-  --residual --improved_self_loops \
-  --gradient_clipping "norm" --clip 1.0 --hidden_dims 128 128 128 \  
-  --train_years "1990+1999+2003" --validation_years "2005" \
-  --wandb_mode disabled
-```
-
-## Logging
-
-Currently, logging is disabled by default. However, the user may use wandb to log the experiments by passing the argument ``--wandb_mode=online``
-
-## Notebooks
-
-There are some jupyter notebooks in the notebooks folder which we used for plotting, benchmarking etc. You may go through them to visualize the results/benchmark the models.
 
 ## License: 
 This work is made available under [Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/legalcode) license. ![CC BY 4.0][cc-by-shield]

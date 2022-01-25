@@ -1,55 +1,67 @@
 import matplotlib.pyplot as plt
 from matplotlib.colors import TwoSlopeNorm
-import cartopy.crs as ccrs
-import cartopy.feature as cfeature
 import numpy as np
 import einops
 import xarray as xr
 
+from climart.data_wrangling.constants import get_coordinates
+
 
 def set_labels_and_ticks(ax,
+                         title: str = "",
                          xlabel: str = "", ylabel: str = "",
                          xlabel_fontsize: int = 10, ylabel_fontsize: int = 14,
                          xlim=None, ylim=None,
                          xticks=None, yticks=None,
+                         title_fontsize: int = None,
                          xticks_fontsize: int = None, yticks_fontsize: int = None,
                          xtick_labels=None, ytick_labels=None,
+                         logscale_y: bool = False,
                          show: bool = True,
                          grid: bool = True,
                          legend: bool = True, legend_loc='best', legend_prop=10,
                          full_screen: bool = False,
+                         tight_layout: bool = True,
                          save_to: str = None
                          ):
+    ax.set_title(title, fontsize=title_fontsize)
     ax.set_xlabel(xlabel, fontsize=xlabel_fontsize)
     ax.set_ylabel(ylabel, fontsize=ylabel_fontsize)
 
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
-    if xticks:
+    if xticks is not None:
         ax.set_xticks(xticks)
-    if xtick_labels:
+    if xtick_labels is not None:
         ax.set_xticklabels(xtick_labels)
     if xticks_fontsize:
         for tick in ax.xaxis.get_major_ticks():
             tick.label.set_fontsize(xticks_fontsize)
         # tick.label.set_rotation('vertical')
 
-    if yticks:
+    if logscale_y:
+        ax.set_yscale('log')
+    if yticks is not None:
         ax.set_yticks(yticks)
-    if ytick_labels:
+    if ytick_labels is not None:
         ax.set_yticklabels(ytick_labels)
     if yticks_fontsize:
         for tick in ax.yaxis.get_major_ticks():
             tick.label.set_fontsize(yticks_fontsize)
+
     if grid:
         ax.grid()
     if legend:
         ax.legend(loc=legend_loc, prop={'size': legend_prop}) #if full_screen else ax.legend(loc=legend_loc)
 
+    if tight_layout:
+        plt.tight_layout()
+
     if save_to is not None:
         if full_screen:
             mng = plt.get_current_fig_manager()
             mng.full_screen_toggle()
+
         plt.savefig(save_to, bbox_inches='tight')
         if full_screen:
             mng.full_screen_toggle()
@@ -81,7 +93,7 @@ class RollingLineFormats:
                  unique_keys: list,
                  pos_markers: list = None,
                  cmap = None,
-                 linewidth: int = 4
+                 linewidth: float = 4
                  ):
         print(unique_keys)
         if pos_markers is None:
@@ -90,6 +102,8 @@ class RollingLineFormats:
             cmap = plt.get_cmap('viridis')
         cs = ['#1f77b4', '#ff7f0e', '#2ca02c', '#9467bd', '#8c564b',
               '#e377c2', '#7f7f7f', '#d62728', '#bcbd22', '#17becf']
+        # cs = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
         self.pos_markers = pos_markers
         # self.cmaps = {key: cmap(i/len(unique_keys)) for i, key in enumerate(unique_keys)}
         self.cmaps = {key: cs[i] for i, key in enumerate(unique_keys)}
@@ -160,21 +174,11 @@ def height_plot(yaxis, line, std, yticks=None, ylabel=None, xlabel=None, show=Fa
         ax.plot(line - std, yaxis, '--', color=p[0].get_color(), linewidth=1.5)
         ax.plot(line + std, yaxis, '--', color=p[0].get_color(), linewidth=1.5)
 
-    if yticks is not None:
-        ax.set_yticks(yaxis)  # yaxis
-        ax.yaxis.set_ticklabels(yticks)  # change the ticks' names to yticks
+    xlim = [0, ax.get_xlim()[1]] if 'mae' in xlabel.lower() or 'rmse' in xlabel.lower() else None
+    set_labels_and_ticks(ax=ax, xlabel=xlabel, xlim=xlim,
+                         yticks=yaxis, ytick_labels=yticks,
+                         ylabel=ylabel, show=show)
 
-    if xlabel is not None:
-        ax.set_xlabel(xlabel.strip())
-
-    if ylabel is not None:
-        ax.set_ylabel(ylabel)
-
-    if 'mae' in xlabel.lower() or 'rmse' in xlabel.lower():
-        ax.set_xlim([0, ax.get_xlim()[1]])
-
-    if show:
-        plt.show()
     return fig
 
 
@@ -190,7 +194,7 @@ def level_errors(Y_true, Y_preds, epoch):
         t = plt.text(x, y, round(tex, 2), horizontalalignment='right' if x < 0 else 'left',
                      verticalalignment='center', fontdict={'color': 'red' if x < 0 else 'green', 'size': 10})
 
-    # Styling    
+    # Styling
     plt.yticks(index, ['Level: ' + str(z) for z in index], fontsize=12)
     plt.title(f'Average Level-wise error for epoch: {epoch}', fontdict={'size': 20})
     plt.grid(linestyle='--', alpha=0.5)
@@ -199,11 +203,9 @@ def level_errors(Y_true, Y_preds, epoch):
     return lev_fig
 
 
-def profile_errors(Y_true, Y_preds, plot_profiles=200, var_name=None,
+def profile_errors(Y_true, Y_preds, plot_profiles=200, var_name=None, data_dir: str = None,
                    error_type='mean', plot_type='scatter', set_seed=False, title=""):
-    coords_data = xr.open_dataset(
-        '/miniscratch/venkatesh.ramesh/ECC_data/snapshots/coords_data/areacella_fx_CanESM5_amip_r1i1p1f1_gn.nc'
-    )
+    coords_data = get_coordinates(data_dir)
     lat = list(coords_data.get_index('lat'))
     lon = list(coords_data.get_index('lon'))
 
@@ -268,6 +270,8 @@ def profile_plot(lon_plot, lat_plot, errors, var_name=None, plot_type='scatter',
     :param dpi:
     :return:
     """
+    import cartopy.crs as ccrs
+    import cartopy.feature as cfeature
     fig = plt.figure(figsize=(12, 8))
     plt.rcParams['figure.dpi'] = dpi
     plot_type = plot_type.lower()

@@ -1,0 +1,20 @@
+defaults:
+  - default.yaml
+
+watch_model:
+  _target_: src.callbacks.wandb_callbacks.WatchModel
+  log: "all"
+  log_freq: 100
+
+upload_code_as_artifact:
+  _target_: src.callbacks.wandb_callbacks.UploadCodeAsArtifact
+  code_dir: ${work_dir}/src
+
+upload_ckpts_as_artifact:
+  _target_: src.callbacks.wandb_callbacks.UploadCheckpointsAsArtifact
+  ckpt_dir: ${ckpt_dir}
+  upload_best_only: True
+
+log_image_predictions:
+  _target_: src.callbacks.wandb_callbacks.LogImagePredictions
+  num_samples: 8

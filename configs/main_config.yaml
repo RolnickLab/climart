@@ -1,0 +1,91 @@
+# @package _global_
+
+# specify here default training configuration
+defaults:
+  - _self_
+  - trainer: default.yaml
+  - model: mlp.yaml
+
+  - callbacks: default.yaml
+  - logger: wandb # set logger here or use command line (e.g. `python run.py logger=wandb`)
+
+  # modes are special collections of config options for different purposes, e.g. debugging
+  - mode: default.yaml
+
+  # experiment configs allow for version control of specific configurations
+  # for example, use them to store best hyperparameters for each combination of model and datamodule
+  - experiment: null
+
+  # config for hyperparameter optimization
+  - hparams_search: null
+
+  # optional local config for machine/user specific settings
+  - optional local: default.yaml
+
+  # enable color logging
+  - override hydra/hydra_logging: colorlog
+  - override hydra/job_logging: colorlog
+
+datamodule:
+  _target_: climart.datamodules.pl_climart_datamodule.ClimartDataModule
+  exp_type: "pristine"
+  target_type: "shortwave"
+  target_variable: "fluxes+heating_rate"
+  train_years:  "1999-2000"
+  validation_years: "2005"
+  batch_size: 128
+  eval_batch_size: 512
+  num_workers: 0
+  pin_memory: True
+  load_train_into_mem: True
+  load_valid_into_mem: True
+  load_test_into_mem: False
+  verbose: ${verbose}
+  # path to folder with data (optional, can also override constants.DATA_DIR to point to correct dir)
+  data_dir: "/network/scratch/s/salva.ruhling-cachay/climart/hdf5"  # null
+
+transform:
+  _target_: climart.datamodules.normalization.InputTransformer
+  input_normalization: "z"
+  output_normalization: null
+  spatial_normalization_in:  False
+  spatial_normalization_out: False
+  log_scaling: False
+  data_dir: ${datamodule.data_dir}
+  verbose: ${verbose}
+# path to original working directory
+# hydra hijacks working directory by changing it to the new log directory
+# so it's useful to have this path as a special variable
+# https://hydra.cc/docs/next/tutorials/basic/running_your_app/working_directory
+work_dir: ${oc.env:SCRATCH}/climart_out_dir # ${hydra:runtime.cwd}  # oc.env allows to get environment variable
+
+val_metric: "val/${target_var_id:heating_rate, ${datamodule.target_type}}/rmse"
+
+# path to checkpoints
+ckpt_dir: ${work_dir}/checkpoints/
+
+# path for logging
+log_dir: ${work_dir}/logs/
+
+# pretty print config at the start of the run using Rich library
+print_config: True
+
+# disable python warnings if they annoy you
+ignore_warnings: True
+
+# evaluate on test set, using best model weights achieved during training
+# lightning chooses best weights based on metric specified in checkpoint callback
+test_after_training: True
+
+# Upload trained model / config file to wandb cloud?
+save_model_to_wandb: True
+save_config_to_wandb: True
+
+# Verbose?
+verbose: False
+
+# seed for random number generators in pytorch, numpy and python.random
+seed: 11
+
+# name of the run, should be used along with experiment mode
+name: null

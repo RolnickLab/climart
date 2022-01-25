@@ -1,0 +1,16 @@
+_target_: climart.models.MLP.MLPNet
+
+hidden_dims: [512, 256, 256]
+net_normalization: "layer_norm"
+activation_function: "Gelu"
+dropout: 0.0
+residual: False
+
+monitor: ${val_metric}
+scheduler:
+  _target_: torch.optim.lr_scheduler.ExponentialLR
+  gamma: 0.98
+optim:
+  _target_: torch.optim.Adam
+  lr: 2e-4
+  weight_decay: 1e-6

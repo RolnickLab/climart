@@ -7,7 +7,7 @@ from functools import partial
 import torch
 import xarray as xr
 import numpy as np
-from climart.models.interface import get_model, is_gnn, is_graph_net, get_input_transform
+from climart.models.interface import get_input_transform
 from climart.models.column_handler import ColumnPreprocesser
 from climart.data_wrangling.constants import LEVELS, LAYERS, GLOBALS, PRISTINE, get_data_dims, get_metadata, \
     get_coordinates
@@ -31,75 +31,14 @@ def get_lat_lon(data_dir: str = None):
     return {'latitude': lat, 'longitude': lon, 'latitude_flattened': lat_var, 'longitude_flattened': lon_var}
 
 
-def get_preds_and_pressure(ckpt_path: str,
-                           year: str,
-                           device='cuda',
-                           batch_size: int = 512,
-                           model_dir: str = None,
-                           load_h5_into_mem: bool = True
-                           ):
-    if len(ckpt_path.split('/')) == 1:
-        model_dir = model_dir or 'out/'
-        ckpt_path = f"{model_dir}/{ckpt_path}.pkl"
-    if not os.path.isfile(ckpt_path):
-        raise ValueError(f"No checkpoint was found at {ckpt_path}")
-
-    model_ckpt = torch.load(ckpt_path, map_location=torch.device(device))
-    params = model_ckpt['hyper_params']
-    net_params = model_ckpt['model_params']
-
-    if is_gnn(params['model']) or is_graph_net(params['model']):
-        spatial_dim, in_dim = get_data_dims(params['exp_type'])
-        cp = ColumnPreprocesser(
-            n_layers=spatial_dim[LAYERS], input_dims=in_dim, **params['preprocessing_dict']
-        )
-        input_transform = cp.get_preprocesser
-    else:
-        cp = None
-        input_transform = partial(get_input_transform, model_class=get_model(params['model'], only_class=True))
-
-    dataset_kwargs = dict(
-        exp_type=params['exp_type'],
-        target_type=params['target_type'],
-        target_variable=params['target_variable'],
-        input_transform=input_transform,
-        input_normalization=params['in_normalize'],
-        spatial_normalization_in=params['spatial_normalization_in'],
-        log_scaling=params['log_scaling'],
-        load_h5_into_mem=load_h5_into_mem
-    )
-    dset = ClimART_HdF5_Dataset(years=year_string_to_list(str(year)), name='Eval', output_normalization=None,
-                           **dataset_kwargs)
-    dloader = torch.utils.data.DataLoader(dset, batch_size=batch_size, pin_memory=True, shuffle=False, num_workers=4)
-    output_postprocesser = dset.output_variable_splitter
-
-    d = dset.h5_dsets[0].get_raw_input_data()
-    lvl_pressure = d[LEVELS][..., 2]
-    lay_pressure = d[LAYERS][..., 2]
-    cszrow = d[GLOBALS][..., 0]
-
-    trainer_kwargs = dict(
-        model_name=params['model'], model_params=net_params,
-        device=params['device'], seed=params['seed'],
-        model_dir=params['model_dir'],
-        output_postprocesser=output_postprocesser,
-    )
-    if cp is not None:
-        trainer_kwargs['column_preprocesser'] = cp
-
-    trainer = get_trainer(**trainer_kwargs)
-    trainer.reload_model(model_state_dict=model_ckpt['model'])
-    preds, Y, _ = trainer.evaluate(dloader, verbose=True)
-
-    dset.close()
-    return {'preds': preds, 'targets': Y, 'pressure': lvl_pressure, 'layer_pressure': lay_pressure, 'cszrow': cszrow}
-
-
 # %%
 
-def save_preds_to_netcdf(preds, targets,
+def save_preds_to_netcdf(preds,
+                         targets,
                          post_fix: str = '',
-                         save_path=None, exp_type='pristine', data_dir: str = None,
+                         save_path=None,
+                         exp_type='pristine',
+                         data_dir: str = None,
                          model=None,
                          **kwargs):
     lat_lon = get_lat_lon(data_dir)
@@ -139,7 +78,7 @@ def save_preds_to_netcdf(preds, targets,
         save_path.replace('.nc', post_fix + '.nc')
 
     elif model is not None:
-        save_path = f'~/RT-DL/example_{exp_type}_preds_{model}_{post_fix}.nc'
+        save_path = f'./example_{exp_type}_preds_{model}_{post_fix}.nc'
     else:
         print("Not saving to NC!")
         return xr_dset
@@ -178,17 +117,3 @@ def restore_ckpt_from_wandb(run_id,
                             **kwargs):
     run = restore_run(run_id, run_path, api)
     return restore_ckpt_from_wandb(run, load=load, **kwargs)
-
-
-def restore_and_save_preds_to_netcdf(run_id, run_path: str, years: List[int], device='cuda'):
-    if not isinstance(years, list):
-        years = [years]
-    ckpt_file = restore_ckpt_from_wandb(run_id, run_path)
-    exp = 'clear_sky' if 'CS' in ckpt_file else 'pristine'
-    for year in years:
-        save_path = ckpt_file.replace('.pkl', f'_{year}.nc')
-        if os.path.isfile(save_path):
-            print('Skipping since already exists.')
-            continue
-        p_gn = get_preds_and_pressure(ckpt_file, year=str(year), device=device)
-        save_preds_to_netcdf(**p_gn, save_path=save_path, post_fix=str(year), exp_type=exp)

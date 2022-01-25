@@ -55,8 +55,8 @@ class PredictionPostProcessCallback:
         if isinstance(vector, dict):
             return vector
         splitted_vector = dict()
-        for var_name, var_dict in self.variable_to_channel.items():
-            splitted_vector[var_name] = vector[..., var_dict['start']:var_dict['end']]
+        for var_name, var_channel_limits in self.variable_to_channel.items():
+            splitted_vector[var_name] = vector[..., var_channel_limits['start']:var_channel_limits['end']]
         return splitted_vector
 
     def __call__(self, vector, *args, **kwargs):

@@ -6,7 +6,7 @@ pd.set_option('display.width', 1000)
 import numpy as np
 import matplotlib.pyplot as plt
 
-from analysis.clean_naming import get_model_name
+from climart.utils.naming import get_model_name
 from analysis.wandb_api import get_runs_df, has_tags, topk_run_of_each_model_type, hasnt_tags, has_hyperparam_values, \
     larger_than, df_larger_than
 from climart.data_wrangling.constants import TEST_YEARS

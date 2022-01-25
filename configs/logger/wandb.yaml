@@ -1,0 +1,19 @@
+# https://wandb.ai
+
+wandb:
+  _target_: pytorch_lightning.loggers.wandb.WandbLogger
+  entity: "ecc-mila7"  # optionally set to name of your wandb team
+  name: ${name}
+  tags: []
+  notes: "..."
+  project: "ClimART"
+  group: ""
+  resume: "allow"
+  reinit: True
+  mode: online # disabled  # disabled for no wandb logging
+  save_dir: ${work_dir}/
+  offline: False # set True to store all logs only locally
+  id: null # pass correct id to resume experiment!
+  log_model: False
+  prefix: ""
+  job_type: "train"

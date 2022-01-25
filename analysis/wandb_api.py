@@ -17,10 +17,10 @@ def has_finished(run) -> bool:
 
 
 def has_final_metric(run) -> bool:
-    return 'Final/Test_MAE' in run.summary.keys()
+    return 'test/hrsc/rmse' in run.summary.keys()
 
 
-def has_max_metric_value(metric: str = 'Final/Test_MAE', max_metric_value: float = 1.0) -> Callable:
+def has_max_metric_value(metric: str = 'test/hrsc/rmse', max_metric_value: float = 1.0) -> Callable:
     return lambda run: run.summary[metric] <= max_metric_value
 
 
@@ -81,7 +81,7 @@ str_to_run_pre_filter = {
 
 # Post-filters
 def topk_runs(k: int = 5,
-              metric: str = 'Final/Test_MAE',
+              metric: str = 'test/hrsc/rmse',
               lower_is_better: bool = True) -> DF_MAPPING:
     if lower_is_better:
         return lambda df: df.nsmallest(k, metric)
@@ -90,7 +90,7 @@ def topk_runs(k: int = 5,
 
 
 def topk_run_of_each_model_type(k: int = 1,
-                                metric: str = 'Final/Test_MAE',
+                                metric: str = 'test/hrsc/rmse',
                                 lower_is_better: bool = True) -> DF_MAPPING:
     topk_filter = topk_runs(k, metric, lower_is_better)
 

@@ -1,0 +1,27 @@
+_target_: climart.models.GNs.graph_network.GN_withReadout
+
+hidden_dims: [128, 128, 128]
+net_normalization: null
+activation_function: "Gelu"
+dropout: 0.0
+residual: True
+
+column_preprocesser:
+  _target_: climart.models.column_handler.ColumnPreprocesser
+  preprocessing: "graph_net_level_nodes"
+  exp_type: ${datamodule.exp_type}
+  projector_net_normalization: "layer_norm"
+
+update_mlp_n_layers: 1
+aggregator_func: "mean"
+graph_pooling: "mean"
+readout_which_output: "nodes"
+
+monitor: ${val_metric}
+scheduler:
+  _target_: torch.optim.lr_scheduler.ExponentialLR
+  gamma: 0.98
+optim:
+  _target_: torch.optim.Adam
+  lr: 2e-4
+  weight_decay: 1e-6

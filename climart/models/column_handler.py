@@ -6,7 +6,7 @@ from torch import Tensor
 from einops import repeat
 
 from climart.models.GNs.constants import NODES, EDGES
-from climart.data_wrangling.constants import LAYERS, LEVELS, GLOBALS
+from climart.data_wrangling.constants import LAYERS, LEVELS, GLOBALS, get_data_dims
 from climart.models.additional_layers import FeatureProjector
 from climart.utils.utils import normalize_adjacency_matrix_torch, identity, get_logger
 
@@ -26,9 +26,8 @@ class ColumnPreprocesser:
     ONLY_LEVEL_NODES = ['graph_net_level_nodes']
 
     def __init__(self,
-                 n_layers: int,
-                 input_dims: Dict[str, int],
                  preprocessing: str,
+                 exp_type: str,
                  projector_hidden_dim: int = 128,  # only if preprocessing == 'mlp'
                  projector_n_layers: int = 1,  # only if preprocessing == 'mlp'
                  projector_net_normalization: str = 'layer_norm',  # only if preprocessing == 'mlp'
@@ -37,8 +36,11 @@ class ColumnPreprocesser:
                  use_level_features: bool = True,
                  drop_last_level: bool = True  # only used if preprocessing == 'duplication'
                  ):
-        self.input_dims = input_dims
-        self.n_lay = n_layers
+        input_output_dimensions = get_data_dims(exp_type=exp_type)
+        spatial_dim = input_output_dimensions['spatial_dim']
+        self.input_dims = input_output_dimensions['input_dim']
+
+        self.n_lay = spatial_dim[LAYERS]
         self.n_lev = self.n_lay + 1
         self.out_dim = None
         self.as_string = ""

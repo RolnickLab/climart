@@ -1,0 +1,41 @@
+# @package _global_
+
+# to execute this experiment run:
+# python run.py experiment=example
+
+defaults:
+  - override /mode: exp.yaml
+  - override /trainer: default.yaml
+  - override /model: mnist.yaml
+  - override /callbacks: default.yaml
+  - override /logger: null
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+# name of the run determines folder name in logs
+# can also be accessed by loggers
+name: "example"
+
+seed: 12345
+
+trainer:
+  min_epochs: 1
+  max_epochs: 10
+  gradient_clip_val: 5
+
+model:
+  lin1_size: 128
+  lin2_size: 256
+  lin3_size: 64
+  lr: 0.002
+
+datamodule:
+  batch_size: 64
+  train_val_test_split: [55_000, 5_000, 10_000]
+
+logger:
+  csv:
+    name: csv/${name}
+  wandb:
+    tags: ["mnist", "simple_dense_net"]
