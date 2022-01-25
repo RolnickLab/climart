@@ -1,14 +1,6 @@
 import logging
 from typing import List
 
-
-# [
-# 'ncldy', 'aerin', 'sw_ext_sa', 'sw_ssa_sa', 'sw_g_sa', 'lw_abs_sa', 'ccld', 'cldtrol', 'clw_sub', 'cic_sub', 'rel_sub', 'rei_sub',
-# 'shtj', 'tfrow', 'shj', 'dshj', 'dz', 'tlayer', 'ozphs', 'qc', 'co2rox', 'ch4rox', 'n2orox', 'f11rox', 'f12rox', 'f113rox', 'f114rox',
-# 'pressg', 'gtrow', 'oztop', 'cszrow', 'emisrow', 'cldtrol', 'ncldy',
-# 'salbrol', 'csalrol', 'emisrot', 'gtrot', 'farerot', 'salbrot', 'csalrot', 'pressure', 'layer_thickness',
-# 'x_cord', 'y_cord', 'z_cord', 'height']
-
 _ALL_INPUT_VARS = [
     'shtj',
     'tfrow',
@@ -23,8 +15,6 @@ _ALL_INPUT_VARS = [
     'n2orox',
     'f11rox',
     'f12rox',
-    'f113rox',
-    'f114rox',
     'ccld',
     'rhc',
     'anu',

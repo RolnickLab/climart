@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from torch import Tensor
 
-from climart.data_wrangling.constants import LEVELS, LAYERS, GLOBALS, EXP_TYPES, get_metadata
+from climart.data_wrangling.constants import LEVELS, LAYERS, GLOBALS, EXP_TYPES, get_metadata, get_statistics
 from climart.data_wrangling import constants
 from climart.utils.callbacks import PredictionPostProcessCallback
 from climart.utils.preprocessing import get_normalizer, Normalizer
@@ -82,7 +82,7 @@ class ClimART_HdF5_Dataset(torch.utils.data.Dataset):
         self._load_h5_into_mem = load_h5_into_mem
 
         if data_dir is None:
-            data_dir = constants.H5_DIR
+            data_dir = constants.DATA_DIR
         self._recover_meta_info(data_dir)
 
         self._layer_mask = 45 if exp_type == constants.CLEAR_SKY else 14
@@ -95,7 +95,7 @@ class ClimART_HdF5_Dataset(torch.utils.data.Dataset):
                        f" based on pre-computed stats."
             log.info(info_msg)
 
-            precomputed_stats = np.load(constants.STATISTICS_FILE)
+            precomputed_stats = get_statistics(data_dir)
             precomputed_stats = {k: precomputed_stats[k] for k in precomputed_stats.keys() if
                                  (('spatial' in k and spatial_normalization_in) or ('spatial' not in k))}
             if isinstance(log_scaling, list) or log_scaling:

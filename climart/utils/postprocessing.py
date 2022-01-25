@@ -7,17 +7,16 @@ from functools import partial
 import torch
 import xarray as xr
 import numpy as np
-from climart.models.interface import get_model, is_gnn, is_graph_net, get_trainer, get_input_transform
+from climart.models.interface import get_model, is_gnn, is_graph_net, get_input_transform
 from climart.models.column_handler import ColumnPreprocesser
-from climart.data_wrangling.constants import LEVELS, LAYERS, GLOBALS, PRISTINE, get_data_dims, get_metadata
+from climart.data_wrangling.constants import LEVELS, LAYERS, GLOBALS, PRISTINE, get_data_dims, get_metadata, \
+    get_coordinates
 from climart.data_wrangling.h5_dataset import ClimART_HdF5_Dataset
-from climart.utils.utils import set_seed, get_name, year_string_to_list
+from climart.utils.utils import year_string_to_list
 
 
-def get_lat_lon():
-    coords_data = xr.open_dataset(
-        '/miniscratch/venkatesh.ramesh/ECC_data/snapshots/coords_data/areacella_fx_CanESM5_amip_r1i1p1f1_gn.nc'
-    )
+def get_lat_lon(data_dir: str = None):
+    coords_data = get_coordinates(data_dir)
     lat = list(coords_data.get_index('lat'))
     lon = list(coords_data.get_index('lon'))
 
@@ -101,8 +100,9 @@ def get_preds_and_pressure(ckpt_path: str,
 def save_preds_to_netcdf(preds, targets,
                          post_fix: str = '',
                          save_path=None, exp_type='pristine', data_dir: str = None,
-                         model=None, **kwargs):
-    lat_lon = get_lat_lon()
+                         model=None,
+                         **kwargs):
+    lat_lon = get_lat_lon(data_dir)
     lat, lon = lat_lon['latitude'], lat_lon['longitude']
     spatial_dim, _ = get_data_dims(exp_type)
     n_levels = spatial_dim[LEVELS]
@@ -160,11 +160,11 @@ def restore_run(run_id,
     return run
 
 
-def restore_ckpt_from_wandb_run(run, run_path=None, load: bool = False, **kwargs):
+def restore_ckpt_from_wandb_run(run, entity: str = 'ecc-mila7', run_path=None, load: bool = False, **kwargs):
     run_id = run.id
     ckpt = [f for f in run.files() if f"{run_id}.pkl" in str(f)]
     ckpt = str(ckpt[0].name)
-    ckpt = wandb.restore(ckpt, run_path=f"ecc-mila7/RT+ML_Dataset_paper/{run_id}")
+    ckpt = wandb.restore(ckpt, run_path=f"{entity}/ClimART/{run_id}")
     ckpt_fname = ckpt.name
     if load:
         return torch.load(ckpt_fname, **kwargs)

@@ -28,7 +28,7 @@ class ClimART_GeneralHdF5_Writer:
         if not self.filename.endswith('.h5'):
             self.filename += '.h5'
         os.makedirs(save_dir, exist_ok=True)
-        os.makedirs(self.input_h5_dir(), exist_ok=True)
+        os.makedirs(self.input_h5_dir, exist_ok=True)
         for exp_type in EXP_TYPES:
             os.makedirs(os.path.join(save_dir, f'outputs_{exp_type}'), exist_ok=True)
 
@@ -44,13 +44,14 @@ class ClimART_GeneralHdF5_Writer:
 
         self._write_meta_info_to_json()
 
+    @property
     def input_h5_dir(self) -> str:
         fpath = os.path.join(self.save_dir, 'inputs')
         return fpath
 
     def h5_filepaths(self) -> Dict[str, str]:
         return {
-            'inputs': os.path.join(self.input_h5_dir(), self.filename),
+            'inputs': os.path.join(self.input_h5_dir, self.filename),
             **{
                 f'outputs_{exp_type}': os.path.join(self.save_dir, f'outputs_{exp_type}/{self.filename}')
                 for exp_type in EXP_TYPES

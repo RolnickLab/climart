@@ -5,7 +5,7 @@ from typing import Optional, Sequence, List
 import h5py
 import numpy as np
 
-from climart.data_wrangling.constants import INPUT_TYPES, LAYERS, TRAIN_YEARS, H5_DIR, SPATIAL_DATA_TYPES, DATA_TYPE_DIMS
+from climart.data_wrangling.constants import INPUT_TYPES, LAYERS, TRAIN_YEARS, DATA_DIR, SPATIAL_DATA_TYPES, DATA_TYPE_DIMS
 from climart.data_wrangling.data_variables import DONT_NORMALIZE
 from climart.utils.utils import get_logger
 
@@ -20,7 +20,7 @@ def pre_compute_dataset_statistics_on_h5(
         # default 1979-2005, without 1991-93 for pinatubo OOD
         training_years = TRAIN_YEARS
 
-    with open(f'{H5_DIR}/META_INFO.json', 'r') as fp:
+    with open(f'{DATA_DIR}/META_INFO.json', 'r') as fp:
         meta_info_all = json.load(fp)
     meta_info = meta_info_all['feature_by_var']
     data_types = list(meta_info.keys())
@@ -52,7 +52,7 @@ def pre_compute_dataset_statistics_on_h5(
         else:
             in_out_name = data_type
             data_arrays = meta_info[data_type].keys()
-        direc = os.path.join(H5_DIR, in_out_name)
+        direc = os.path.join(DATA_DIR, in_out_name)
         log.info(f' Normalizing {data_type}: {data_arrays}')
         for array in data_arrays:
             name = data_type if data_type in INPUT_TYPES else f"{data_type}_{array}"
@@ -100,7 +100,7 @@ def pre_compute_dataset_statistics_on_h5(
 
             del all_data
             log.info(f'Statistics for {data_type}-{array} computed!')
-    output_file = os.path.join(H5_DIR, 'statistics.npz')
+    output_file = os.path.join(DATA_DIR, 'statistics.npz')
     np.savez(output_file, **to_save)
     log.info(f"Statistics have been successfully saved to {output_file}")
     return output_file

@@ -1,7 +1,10 @@
 import json
 import logging
 import os
+import numpy as np
 from typing import Optional, Dict
+
+import xarray
 
 GLOBALS = "globals"
 LAYERS = "layers"
@@ -28,19 +31,12 @@ DATA_TYPE_DIMS = {GLOBALS: 82, LEVELS: 4, LAYERS: 45, OUTPUTS_CLEARSKY: 1, OUTPU
 TRAIN_YEARS = list(range(1979, 1991)) + list(range(1994, 2005))
 VAL_YEARS = [2005, 2006]
 TEST_YEARS = list(range(2007, 2015))
-# TEST_YEARS = [2014]
 OOD_PRESENT_YEARS = [1991]
-OOD_HISTORIC_YEARS = [1850, 1851, 1852]
 OOD_FUTURE_YEARS = [2097, 2098, 2099]
-ALL_YEARS = TRAIN_YEARS + VAL_YEARS + TEST_YEARS
+OOD_HISTORIC_YEARS = [1850, 1851, 1852]
+ALL_YEARS = TRAIN_YEARS + VAL_YEARS + TEST_YEARS + OOD_PRESENT_YEARS + OOD_FUTURE_YEARS + OOD_HISTORIC_YEARS
 
-H5_DIR = "/home/mila/v/venkatesh.ramesh/check_review/Radiative_transfer_dl/RT_DATA"
-INPUT_DIR = os.path.join(H5_DIR, INPUTS)
-OUTPUT_PRISTINE_DIR = os.path.join(H5_DIR, OUTPUTS_PRISTINE)
-OUTPUT_CLEARSKY_DIR = os.path.join(H5_DIR, OUTPUTS_CLEARSKY)
-STATISTICS_FILE = os.path.join(H5_DIR, 'statistics.npz')
-H5_DATA_SUBDIRS = [INPUT_DIR, OUTPUT_PRISTINE_DIR, OUTPUT_CLEARSKY_DIR]
-
+DATA_DIR = "ClimART_DATA/"
 INPUT_RAW_SUBDIR = "input_raw"
 
 DATA_CREATION_SEED = 7
@@ -58,22 +54,43 @@ def get_data_subdirs(data_dir: str) -> Dict[str, str]:
 
 def get_metadata(data_dir: str = None):
     if data_dir is None:
-        data_dir = H5_DIR
+        data_dir = DATA_DIR
     path = os.path.join(data_dir, 'META_INFO.json')
 
     if not os.path.isfile(path):
-        logging.warning(f' Not able to recover meta information from {path}')
-        return None
-    else:
-        with open(path, 'r') as fp:
-            meta_info = json.load(fp)
-        return meta_info
+        err_msg = f' Not able to recover meta information from {path}'
+        raise ValueError(err_msg)
+    with open(path, 'r') as fp:
+        meta_info = json.load(fp)
+    return meta_info
+
+
+def get_statistics(data_dir: str = None):
+    if data_dir is None:
+        data_dir = DATA_DIR
+    path = os.path.join(data_dir, 'statistics.npz')
+    if not os.path.isfile(path):
+        err_msg = f' Not able to recover statistics file from {path}'
+        raise ValueError(err_msg)
+    statistics = np.load(path)
+    return statistics
+
+
+def get_coordinates(data_dir: str = None):
+    if data_dir is None:
+        data_dir = DATA_DIR
+    path = os.path.join(data_dir, 'areacella_fx_CanESM5.nc')
+    if not os.path.isfile(path):
+        err_msg = f' Not able to recover coordinates/latitudes/longitudes from {path}'
+        raise ValueError(err_msg)
+    return xarray.open_dataset(path)
 
 
 def get_data_dims(exp_type: str) -> (Dict[str, int], Dict[str, int]):
     spatial_dim = {GLOBALS: 0, LEVELS: 50, LAYERS: 49}
     in_dim = {GLOBALS: 82, LEVELS: 4, LAYERS: 14 if exp_type.lower() == PRISTINE else 45}
-    return spatial_dim, in_dim
+    out_dim = 100
+    return {'spatial_dim': spatial_dim, 'input_dim': in_dim, 'output_dim': out_dim}
 
 
 def get_flux_mean():
