@@ -22,9 +22,7 @@ ClimART poses several methodological challenges for the ML community, such as mu
 ## Overview:
 
 * ``climart/``: Package with the main code, baselines and ML training logic.
-* ``notebooks/``: Notebooks for visualization of data.
 * ``analysis/``: Scripts to create visualization of the results (requires logging).
-* ``scripts/``: Scripts to train and evaluate models, and to download the whole ClimART dataset.
 
 ## Getting Started
 <details><p>
