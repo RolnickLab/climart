@@ -2,7 +2,7 @@
 
 wandb:
   _target_: pytorch_lightning.loggers.wandb.WandbLogger
-  entity: "ecc-mila7"  # optionally set to name of your wandb team
+  # entity: "some-name"  # optionally set to name of your wandb team
   name: ${name}
   tags: []
   notes: "..."

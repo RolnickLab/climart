@@ -57,7 +57,7 @@ transform:
 # hydra hijacks working directory by changing it to the new log directory
 # so it's useful to have this path as a special variable
 # https://hydra.cc/docs/next/tutorials/basic/running_your_app/working_directory
-work_dir: ${oc.env:SCRATCH}/climart_out_dir # ${hydra:runtime.cwd}  # oc.env allows to get environment variable
+work_dir: ${hydra:runtime.cwd}  # oc.env allows to get environment variable
 
 val_metric: "val/${target_var_id:heating_rate, ${datamodule.target_type}}/rmse"
 
