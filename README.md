@@ -23,6 +23,7 @@ ClimART poses several methodological challenges for the ML community, such as mu
 
 * ``climart/``: Package with the main code, baselines and ML training logic.
 * ``analysis/``: Scripts to create visualization of the results (requires logging).
+* ``configs/``: Yaml configuration files for Hydra that define in a modular way (hyper-)parameters.
 
 ## Getting Started
 <details><p>
