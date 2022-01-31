@@ -1,7 +1,4 @@
 import os
-from functools import partial
-from pydoc import locate
-
 import wandb
 from hydra.utils import instantiate as hydra_instantiate
 from omegaconf import DictConfig, OmegaConf
@@ -10,23 +7,29 @@ import pytorch_lightning as pl
 from pytorch_lightning import seed_everything
 
 import climart.utils.utils as utils
-from climart.datamodules.normalization import InputTransformer
+from climart.data_transform.normalization import Normalizer
+from climart.data_transform.transforms import AbstractTransform
+from climart.datamodules.pl_climart_datamodule import ClimartDataModule
 from climart.models.base_model import BaseModel
-from climart.models.interface import get_input_transform
 
 
 def run_model(config: DictConfig):
     seed_everything(config.seed, workers=True)
     log = utils.get_logger(__name__)
     utils.extras(config)
+
     if config.get("print_config"):
         utils.print_config(config, fields='all')
 
     # First we instantiate our normalization preprocesser, then our model
-    normalizer: InputTransformer = hydra_instantiate(config.transform, datamodule_config=config.datamodule,
-                                                     _recursive_=False)
-    input_transform = partial(get_input_transform, model_class=locate(config.model._target_))
-    data_module = hydra_instantiate(config.datamodule, input_transform=input_transform, normalizer=normalizer)
+    normalizer: Normalizer = hydra_instantiate(config.normalizer, datamodule_config=config.datamodule,
+                                               _recursive_=False)
+    if config.model.get("input_transform"):
+        input_transform: AbstractTransform = hydra_instantiate(config.model.input_transform)
+    else:
+        input_transform = None
+    data_module: ClimartDataModule = hydra_instantiate(config.datamodule, input_transform=input_transform,
+                                                       normalizer=normalizer)
     emulator_model: BaseModel = hydra_instantiate(
         config.model, _recursive_=False,
         datamodule_config=config.datamodule,
@@ -44,7 +47,7 @@ def run_model(config: DictConfig):
 
     # Init Lightning trainer
     trainer: pl.Trainer = hydra_instantiate(
-        config.trainer, callbacks=callbacks, logger=loggers, _convert_="partial", deterministic=True
+        config.trainer, callbacks=callbacks, logger=loggers, _convert_="partial"  # , deterministic=True
     )
 
     # Send some parameters from config to all lightning loggers
@@ -59,19 +62,23 @@ def run_model(config: DictConfig):
 
     if config.get('save_model_to_wandb'):
         path = trainer.checkpoint_callback.best_model_path
-        log.info(f"Best checkpoint path will be saved to WandB:\n{path}")
+        log.info(f"Best checkpoint path will be saved to wandb from path: {path}")
         wandb.log({'best_model_filepath': path})
         wandb.save(path)
 
     if config.get('save_config_to_wandb'):
-        log.info(f"Hydra config will be saved to WandB:\n")
-        temp_config_to_yaml_file = f"{config.get('log_dir')}/hydra_config.yaml"
-        with open(temp_config_to_yaml_file, "w") as fp:
-            print(temp_config_to_yaml_file)
+        log.info("Hydra config will be saved to WandB as hydra_config.yaml")
+        # files in wandb.run.dir folder get directly uploaded to wandb
+        with open(os.path.join(wandb.run.dir, "hydra_config.yaml"), "w") as fp:
             OmegaConf.save(config, f=fp.name, resolve=True)
-        wandb.save(temp_config_to_yaml_file)
-        os.remove(temp_config_to_yaml_file)
 
     wandb.finish()
+
+    final_model = emulator_model.load_from_checkpoint(
+        trainer.checkpoint_callback.best_model_path,
+        datamodule_config=config.datamodule,
+        output_postprocesser=normalizer.output_variable_splitter,
+        output_normalizer=normalizer.output_normalizer
+    )
 
     return final_model

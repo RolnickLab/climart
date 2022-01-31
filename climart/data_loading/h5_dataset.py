@@ -2,6 +2,7 @@
 import copy
 import logging
 import os
+import pickle
 import shutil
 import zipfile
 from typing import Dict, Optional, List, Callable, Tuple, Union
@@ -11,14 +12,12 @@ import numpy as np
 import torch
 from torch import Tensor
 
-from climart.data_wrangling.constants import LEVELS, LAYERS, GLOBALS, EXP_TYPES
-from climart.data_wrangling import constants
-from climart.datamodules.normalization import InputTransformer
-from climart.datamodules.normalization import Normalizer
-from climart.utils.utils import get_logger, identity, get_target_variable_names, pressure_from_level_array, \
-    get_identity_callable
-
-NP_ARRAY_MAPPING = Callable[[np.ndarray], np.ndarray]
+from climart.data_loading.constants import LEVELS, LAYERS, GLOBALS, EXP_TYPES
+from climart.data_loading import constants
+from climart.data_transform.normalization import Normalizer
+from climart.data_transform.normalization import NormalizationMethod
+from climart.data_transform.transforms import AbstractTransform, IdentityTransform
+from climart.utils.utils import get_logger, identity, get_target_variable_names, pressure_from_level_array
 
 log = get_logger(__name__)
 
@@ -34,9 +33,9 @@ class ClimART_HdF5_Dataset(torch.utils.data.Dataset):
             exp_type: str = 'pristine',
             target_type: Union[str, List[str]] = 'shortwave',
             target_variable: Union[str, List[str]] = 'fluxes+hr',
-            normalizer: Optional[InputTransformer] = None,
-            input_transform: Callable[[bool], Callable] = None,
-            output_transform: Callable[[bool], Callable] = None,
+            normalizer: Optional[Normalizer] = None,
+            input_transform: Optional[AbstractTransform] = None,
+            output_transform: Optional[AbstractTransform] = None,
             load_h5_into_mem: bool = False,
             verbose: bool = True
     ):
@@ -50,22 +49,21 @@ class ClimART_HdF5_Dataset(torch.utils.data.Dataset):
         if isinstance(years, int):
             years = [years]
         assert all([y in constants.ALL_YEARS for y in years]), 'All years must be within 1979-2014.'
-        msg = 'must return a batched transform if its arg is True and otherwise a non-batched transform.'
-        assert callable(input_transform), f"input_transform {msg}"
-        if not callable(output_transform):
-            # log.info(f"output_transform {msg} ... defaulting to not using a transform")
-            output_transform = get_identity_callable
+
+        if not isinstance(input_transform, AbstractTransform):
+            input_transform = IdentityTransform(exp_type)
+        if not isinstance(output_transform, AbstractTransform):
+            output_transform = IdentityTransform(exp_type)
+
         self.years = years
         self.n_years = len(years)
         self._load_h5_into_mem = load_h5_into_mem
+        self._layer_mask = 45 if exp_type == constants.CLEAR_SKY else 14
 
         if data_dir is None:
             data_dir = constants.DATA_DIR
 
-        self._layer_mask = 45 if exp_type == constants.CLEAR_SKY else 14
-
         self.dataset_index_to_sub_dataset: Dict[int, Tuple[int, int]] = dict()
-
         dataset_size = 0
         dset_kwargs = dict(
             data_dir=data_dir,
@@ -80,21 +78,15 @@ class ClimART_HdF5_Dataset(torch.utils.data.Dataset):
             dset_kwargs['input_normalizer'] = self.normalizer.get_normalizers()
             self.normalizer.set_input_normalizers(new_normalizer=None)
 
-            input_transform = input_transform(batched=True)
-            if not isinstance(input_transform, torch.nn.Module):
-                dset_kwargs['input_transform'] = input_transform  # batched
-            print(input_transform, type(input_transform))
-            self._input_transform = identity
+            dset_kwargs['input_transform'] = input_transform  # batched
+            dset_kwargs['output_transform'] = output_transform
 
-            dset_kwargs['output_transform'] = output_transform(batched=True)
-            self._output_transform = identity
+            self._input_transform = IdentityTransform(exp_type)
+            self._output_transform = IdentityTransform(exp_type)
         else:
             dset_class = RT_HdF5_SingleDataset
-            self._input_transform = input_transform(batched=False)  # not batched
-            if isinstance(self._input_transform, torch.nn.Module):
-                self._input_transform = identity
-
-            self._output_transform = output_transform(batched=False)
+            self._input_transform: AbstractTransform = input_transform  # not batched
+            self._output_transform: AbstractTransform = output_transform
 
         self.h5_dsets: List[dset_class] = []
         for file_num, year in enumerate(years):
@@ -133,10 +125,10 @@ class ClimART_HdF5_Dataset(torch.utils.data.Dataset):
             Y = raw_Ys
         else:
             Xs = self.normalizer(raw_Xs['data'])
-            Xs = self._input_transform(Xs)
+            Xs = self._input_transform.transform(Xs)
             X = {'data': Xs, 'level_pressure_profile': raw_Xs['level_pressure_profile']}
 
-            Y = self._output_transform(raw_Ys)
+            Y = self._output_transform.transform(raw_Ys)
             Y = {k: torch.from_numpy(v).float() for k, v in Y.items()}
 
         return X, Y
@@ -315,7 +307,7 @@ def get_processed_fname(h5_name: str, ending='.npz', **kwargs):
             name = 'No'
         elif isinstance(v, str):
             name = v.upper()
-        elif isinstance(v, Normalizer):
+        elif isinstance(v, NormalizationMethod) or isinstance(v, AbstractTransform):
             name = v.__class__.__name__
         else:
             name = v.__qualname__.replace('.', '_')
@@ -326,8 +318,8 @@ def get_processed_fname(h5_name: str, ending='.npz', **kwargs):
 class RT_HdF5_FastSingleDataset(RT_HdF5_SingleDataset):
     def __init__(self,
                  input_normalizer: Optional[Dict[str, Callable]] = None,
-                 input_transform: Callable[[Dict[str, np.ndarray]], np.ndarray] = None,
-                 output_transform: Callable[[Dict[str, np.ndarray]], np.ndarray] = None,
+                 input_transform: Optional[AbstractTransform] = None,
+                 output_transform: Optional[AbstractTransform] = None,
                  write_data: bool = True,
                  reload_if_exists: bool = True,
                  *args, **kwargs):
@@ -370,11 +362,15 @@ class RT_HdF5_FastSingleDataset(RT_HdF5_SingleDataset):
     def _reload_data(self, fname):
         log.info(f' Reloading from {fname}')
         try:
-            in_data = np.load(fname)
+            in_data = np.load(fname, allow_pickle=True)
         except zipfile.BadZipFile as e:
             log.warning(f"{fname} was not properly saved or has been corrupted.")
             raise e
-        in_files = in_data.files
+        try:
+            in_files = in_data.files
+        except AttributeError:
+            return in_data
+
         if len(in_files) == 1:
             return in_data[in_files[0]]
         else:
@@ -383,21 +379,22 @@ class RT_HdF5_FastSingleDataset(RT_HdF5_SingleDataset):
     def _write_data(self, fname, data):
         os.makedirs(os.path.dirname(fname), exist_ok=True)
 
-        if isinstance(data, dict):
-            np.savez_compressed(fname, **data)
-        elif isinstance(data, np.ndarray):
-            np.savez_compressed(fname, data)
+        if isinstance(data, dict) or isinstance(data, np.ndarray):
+            try:
+                np.savez_compressed(fname, **data) if isinstance(data, dict) else np.savez_compressed(fname, data)
+            except OverflowError:
+                with open(fname, "wb") as fp:
+                    pickle.dump(data, fp, pickle.HIGHEST_PROTOCOL)
         else:
             raise ValueError(f"Data has type {type(data)}")
 
     def _preprocess_h5data(self,
                            input_normalizer: Optional[Dict[str, Callable]] = None,
-                           input_transform: Callable[[Dict[str, np.ndarray]], np.ndarray] = None,
-                           output_transform: Callable[[Dict[str, np.ndarray]], np.ndarray] = None,
+                           input_transform: AbstractTransform = None,
+                           output_transform: AbstractTransform = None,
                            inputs: bool = True,
                            outputs: bool = True,
                            ):
-
         if inputs:
             with h5py.File(self.input_path, 'r') as input_data_h5:
                 input_data = {
@@ -410,19 +407,19 @@ class RT_HdF5_FastSingleDataset(RT_HdF5_SingleDataset):
             if input_normalizer is not None:
                 input_data = {k: input_normalizer[k](input_data[k]) for k in constants.INPUT_TYPES}
             if input_transform is not None:
-                print(input_transform, type(input_transform))
-                input_data = input_transform(X=input_data)
+                input_data = input_transform.batched_transform(input_data)
             self.input_data = {'data': input_data, 'level_pressure_profile': level_pressure_profile}
+
         if outputs:
             with h5py.File(self.output_path, 'r') as output_data_h5:
                 output_data = {
                     output_var: np.array(output_data_h5[output_var])
                     for output_var in self._target_variables
                 }
+
             if output_transform is not None:
-                self.output_data = output_transform(output_data)
-            else:
-                self.output_data = output_data
+                output_data = output_transform.batched_transform(X=output_data)
+            self.output_data = output_data
 
     def copy_to_slurm_tmp_dir(self):
         pass

@@ -4,7 +4,7 @@ import numpy as np
 import einops
 import xarray as xr
 
-from climart.data_wrangling.constants import get_coordinates
+from climart.data_loading.constants import get_coordinates
 
 
 def set_labels_and_ticks(ax,

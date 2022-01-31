@@ -16,10 +16,11 @@ import xarray as xr
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from omegaconf import DictConfig
 from torch import Tensor
 import pytorch_lightning as pl
 from pytorch_lightning.utilities import rank_zero_only
-from climart.data_wrangling import constants, data_variables
+from climart.data_loading import constants, data_variables
 from climart.utils.naming import get_group_name, get_detailed_name
 
 
@@ -29,6 +30,7 @@ def no_op(*args, **kwargs):
 
 def get_identity_callable(*args, **kwargs) -> Callable:
     return identity
+
 
 def get_activation_function(name: str, functional: bool = False, num: int = 1):
     name = name.lower().strip()
@@ -136,6 +138,7 @@ def extras(config) -> None:
     """
 
     log = get_logger()
+    check_config_values(config)
 
     # Create working dir if it does not exist yet
     if config.get('work_dir'):
@@ -178,6 +181,18 @@ def extras(config) -> None:
         group_name = get_group_name(config)
         config.logger.wandb.group = group_name if len(group_name) < 128 else group_name[:128]
         config.logger.wandb.name = get_detailed_name(config) + '_' + time.strftime('%Hh%Mm_on_%b_%d') + '_' + wandb_id
+
+
+def check_config_values(config: DictConfig):
+    exp_type = config.datamodule.exp_type.lower()
+    config.datamodule.exp_type = exp_type
+    if exp_type not in ["clear_sky", "pristine"]:
+        raise ValueError(f"Arg `exp_type` should be one of clear_sky or pristine, but got {exp_type}")
+
+    if "net_normalization" in config.model.keys():
+        if config.model.net_normalization is None:
+            config.model.net_normalization = "none"
+        config.model.net_normalization = config.model.net_normalization.lower()
 
 
 def get_all_instantiable_hydra_modules(config, module_name: str):
@@ -250,6 +265,7 @@ def log_hyperparameters(
     # since we already did that above
     trainer.logger.log_hyperparams = no_op
 
+
 def to_dict(obj: Optional[Union[dict, SimpleNamespace]]):
     if obj is None:
         return dict()
@@ -257,6 +273,7 @@ def to_dict(obj: Optional[Union[dict, SimpleNamespace]]):
         return obj
     else:
         return vars(obj)
+
 
 def to_DictConfig(obj: Optional[Union[List, Dict]]):
     from omegaconf import OmegaConf, DictConfig

@@ -1,7 +1,2 @@
-_target_: climart.datamodules.normalization.InputTransformer
-
-input_normalization: "z"
-output_normalization: null
-spatial_normalization_in:  False
-spatial_normalization_out: False
-log_scaling: False
+_target_: climart.data_transforms.transforms.IdentityTranform
+exp_type: ${datamodule.exp_type}

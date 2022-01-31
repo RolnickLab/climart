@@ -7,6 +7,10 @@ activation_function: "Gelu"
 dropout: 0.0
 gap: True
 
+input_transform:
+  _target_: climart.data_transform.transforms.RepeatGlobalsTransform
+  exp_type: ${datamodule.exp_type}
+
 monitor: ${val_metric}
 scheduler:
   _target_: torch.optim.lr_scheduler.ExponentialLR

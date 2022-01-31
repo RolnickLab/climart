@@ -10,10 +10,11 @@ from omegaconf import DictConfig
 from torch import Tensor
 from pytorch_lightning import LightningModule
 
-from climart.data_wrangling.constants import TEST_YEARS, get_data_dims
+from climart.data_loading.constants import TEST_YEARS, get_data_dims
+from climart.data_transform.transforms import AbstractTransform
 from climart.utils.evaluation import evaluate_per_target_variable
 from climart.utils.optimization import get_loss, get_trainable_params
-from climart.datamodules.normalization import Normalizer
+from climart.data_transform.normalization import NormalizationMethod
 from climart.utils.utils import get_logger, fluxes_to_heating_rates, to_DictConfig
 
 
@@ -45,12 +46,14 @@ class BaseModel(LightningModule):
                  optim: Optional[DictConfig] = None,
                  scheduler: Optional[DictConfig] = None,
                  monitor: Optional[str] = None,
+                 mode: str = "min",
                  loss_function: str = "mean_squared_error",
                  downwelling_loss_contribution: float = 0.5,
                  upwelling_loss_contribution: float = 0.5,
                  heating_rate_loss_contribution: float = 0.0,
                  train_on_raw_targets: bool = True,
-                 output_normalizer: Optional[Normalizer] = None,
+                 input_transform: Optional[AbstractTransform] = None,
+                 output_normalizer: Optional[NormalizationMethod] = None,
                  output_postprocesser=None,
                  out_layer_bias_init: Optional[np.ndarray] = None,
                  name: str = "",
@@ -58,13 +61,15 @@ class BaseModel(LightningModule):
                  *args, **kwargs
                  ):
         super().__init__()
-        print("\n", 20*"-", 'Unexpected args\n', args, 'kwargs\n', kwargs, 20*"-")
         self.log_text = get_logger(name=self.__class__.__name__ if name == '' else name)
         self.name = name
         self.verbose = verbose
         if not self.verbose:
             self.log_text.setLevel(logging.WARN)
-
+        if input_transform is None or isinstance(input_transform, AbstractTransform):
+            self.input_transform = input_transform
+        else:
+            self.input_transform = hydra.utils.instantiate(input_transform)
         if datamodule_config is not None:
             input_output_dimensions = get_data_dims(exp_type=datamodule_config.get("exp_type"))
             self.raw_output_dim = input_output_dimensions['output_dim']
@@ -72,7 +77,7 @@ class BaseModel(LightningModule):
             self.raw_input_dim = input_output_dimensions['input_dim']
 
         self._train_on_raw_targets = train_on_raw_targets
-        self.output_normalizer = output_normalizer.copy() if isinstance(output_normalizer, Normalizer) else None
+        self.output_normalizer = output_normalizer.copy() if isinstance(output_normalizer, NormalizationMethod) else None
         if self.output_normalizer is not None and hasattr(self.output_normalizer, 'var_splitter'):
             self.output_postprocesser = self.output_normalizer.var_splitter
         else:
@@ -115,34 +120,6 @@ class BaseModel(LightningModule):
     @property
     def n_params(self):
         return sum(p.numel() for p in self.parameters() if p.requires_grad)
-
-    @staticmethod
-    def _input_transform(X_not_batched: Dict[str, np.ndarray]) -> Any:
-        """
-        How to transform dict
-            X = {
-                'layer': layer_array,   # shape (#layers, #layer-features)
-                'levels': levels_array, # shape (#levels, #level-features)
-                'globals': globals_array (#global-features,)
-                }
-        to the form the model will use/receive it in forward.
-        Implementation will be applied (with multi-processing) in the _get_item(.) method of the dataset
-            --> IMPORTANT: the arrays in X will *not* have the batch dimension!
-        """
-        return X_not_batched
-
-    @staticmethod
-    def _batched_input_transform(X: Dict[str, np.ndarray]) -> Any:
-        """
-        How to transform dict
-            X = {
-                'layer': layer_array,   # shape (batch-size, #layers, #layer-features)
-                'levels': levels_array, # shape (batch-size, #levels, #level-features)
-                'globals': globals_array (batch-size, #global-features,)
-                }
-        to the form the model will use/receive it in forward.
-        """
-        return X
 
     def forward(self, X):
         """

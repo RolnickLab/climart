@@ -1,7 +1,3 @@
-"""
-Author: Salva Rühling Cachay
-"""
-
 import torch
 import torch.nn as nn
 

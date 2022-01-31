@@ -1,5 +1,4 @@
 from typing import Union, List
-
 from omegaconf import DictConfig
 
 
@@ -8,8 +7,8 @@ def _shared_prefix(config: DictConfig, init_prefix: str = "") -> str:
     if 'clear' in config.datamodule.get('exp_type'):
         s += '_CS'
     s += f"_{config.datamodule.get('train_years')}train" + f"_{config.datamodule.get('validation_years')}val"
-    if config.transform.get('input_normalization'):
-        s += f"_{config.transform.get('input_normalization').upper()}"
+    if config.normalizer.get('input_normalization'):
+        s += f"_{config.normalizer.get('input_normalization').upper()}"
     return s.lstrip('_')
 
 
@@ -64,14 +63,15 @@ def get_model_name(name: str) -> str:
 
 
 def get_group_name(config) -> str:
-    s = get_name_for_hydra_config_class(config.model).lower().replace('net', '').replace('_', '').upper()
+    s = get_name_for_hydra_config_class(config.model)
+    s = s.lower().replace('net', '').replace('_', '').replace("climart", "").replace("with", "+").upper()
     s = _shared_prefix(config, init_prefix=s)
 
-    if config.transform.get('spatial_normalization_in') and config.transform.get('spatial_normalization_out'):
+    if config.normalizer.get('spatial_normalization_in') and config.normalizer.get('spatial_normalization_out'):
         s += '+spatialNormed'
-    elif config.transform.get('spatial_normalization_in'):
+    elif config.normalizer.get('spatial_normalization_in'):
         s += '+spatialInNormed'
-    elif config.transform.get('spatial_normalization_out'):
+    elif config.normalizer.get('spatial_normalization_out'):
         s += '+spatialOutNormed'
 
     return s

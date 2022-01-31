@@ -6,11 +6,9 @@ activation_function: "Gelu"
 dropout: 0.0
 residual: True
 
-column_preprocesser:
-  _target_: climart.models.column_handler.ColumnPreprocesser
-  preprocessing: "graph_net_level_nodes"
+input_transform:
+  _target_: climart.data_transform.transforms.LayerEdgesAndLevelNodesGraph
   exp_type: ${datamodule.exp_type}
-  projector_net_normalization: "layer_norm"
 
 update_mlp_n_layers: 1
 aggregator_func: "mean"
