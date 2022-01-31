@@ -1,10 +1,13 @@
-_target_: climart.models.MLP.MLPNet
+_target_: climart.models.MLP.ClimartMLP
 
 hidden_dims: [512, 256, 256]
 net_normalization: "layer_norm"
 activation_function: "Gelu"
 dropout: 0.0
 residual: False
+input_transform:
+  _target_: climart.data_transform.transforms.FlattenTransform
+  exp_type: ${datamodule.exp_type}
 
 monitor: ${val_metric}
 scheduler:
