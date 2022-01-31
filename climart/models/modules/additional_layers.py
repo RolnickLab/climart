@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from torch import Tensor
-from climart.models.MLP import MLPNet
+from climart.models.modules.mlp import MLP
 
 
 class Multiscale_Module(nn.Module):
@@ -90,10 +90,10 @@ class FeatureProjector(nn.Module):
         input_name_to_projector = OrderedDict()
         for input_name, feature_dim in input_name_to_feature_dim.items():
             projector_hidden_dim = int((feature_dim + projection_dim) / 2)
-            projector = MLPNet(
+            projector = MLP(
                 input_dim=feature_dim,
                 hidden_dims=[projector_hidden_dim for _ in range(projector_n_layers)],
-                out_dim=projection_dim,
+                output_dim=projection_dim,
                 activation_function=projector_activation_func,
                 net_normalization=projector_net_normalization,
                 dropout=0,
@@ -163,9 +163,9 @@ class PredictorHeads(nn.Module):
 
             for output_name, var_out_dim in var_name_to_output_dim.items():
                 predictor_hidden_dim = int((input_dim + var_out_dim) / 2)
-                predictor = MLPNet(
+                predictor = MLP(
                     hidden_dims=[predictor_hidden_dim for _ in range(n_layers)],
-                    out_dim=var_out_dim,
+                    output_dim=var_out_dim,
                     **mlp_shared_params
                 )
                 predictor_heads[output_name] = predictor
@@ -174,9 +174,9 @@ class PredictorHeads(nn.Module):
             self.output_name_to_feature_dim = {'joint_output': joint_out_dim}
 
             predictor_hidden_dim = int((input_dim + joint_out_dim) / 2)
-            predictor = MLPNet(
+            predictor = MLP(
                 hidden_dims=[predictor_hidden_dim for _ in range(n_layers)],
-                out_dim=joint_out_dim,
+                output_dim=joint_out_dim,
                 **mlp_shared_params
             )
             predictor_heads['joint_output'] = predictor
@@ -200,19 +200,3 @@ class PredictorHeads(nn.Module):
                 return joint_output
         else:
             return name_to_prediction if as_dict else name_to_prediction['joint_output']
-
-
-if __name__ == '__main__':
-    x = torch.rand(64, 100, 15)
-    # gp = GAP()
-    # print(gp(x).shape)
-    # in_channels = x.shape[1]
-    # channels_per_layer = 200
-    # out_shape = 10
-
-    # kwargs = {'in_channels': in_channels, 'channels_per_layer': channels_per_layer, 'out_shape': out_shape,
-    #           'dil_rate': 1, 'use_act': False}
-    # mm = Multiscale_Module(**kwargs)
-    # se = SE_Block(100, 15)
-    out = SE_Block(x.shape[1], 15).forward(x)
-    print(out.shape)
