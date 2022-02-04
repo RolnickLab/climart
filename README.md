@@ -74,10 +74,10 @@ For pristine-sky Dlay = 14, while for clear-sky Dlay = 45, since it contains ext
 ## Baselines
 
 To reproduce our paper results (for seed = 7), you may choose any of our pre-defined configs in the
- [configs/model](configs/model) folder (for now only mlp) and train it as follows
+ [configs/model](configs/model) folder and train it as follows
  
  ```
-# Soon: you can replace mlp with "graphnet", "gcn", or "cnn"
+# You can replace mlp with "graphnet", "gcn", or "cnn" to run a different ML model
 # To train on the CPU, choose trainer.gpus=0
 python run.py seed=7 model=mlp trainer.gpus=1  
 ```

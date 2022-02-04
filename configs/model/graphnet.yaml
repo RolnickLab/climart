@@ -1,4 +1,4 @@
-_target_: climart.models.GNs.graph_network.GN_withReadout
+_target_: climart.models.GraphNet.graph_network.GN_withReadout
 
 hidden_dims: [128, 128, 128]
 net_normalization: null
