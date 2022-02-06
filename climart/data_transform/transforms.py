@@ -7,7 +7,7 @@ import torch
 from torch import Tensor
 
 from climart.data_loading.constants import LEVELS, LAYERS, GLOBALS, get_data_dims
-from climart.models.GNs.constants import NODES, EDGES
+from climart.models.GraphNet.constants import NODES, EDGES
 from climart.models.modules.additional_layers import FeatureProjector
 from climart.utils.utils import get_logger, normalize_adjacency_matrix_torch
 
@@ -92,6 +92,9 @@ class RepeatGlobalsTransform(AbstractTransform):
     f - feature dimension
     b -  batch dimension
     """
+    def __init__(self, exp_type: str):
+        super().__init__(exp_type)
+        self._out_dim = sum(self.input_dim.values())
 
     def transform(self, X: Dict[str, np.ndarray]) -> np.ndarray:
         X_levels = X[LEVELS]
@@ -105,18 +108,18 @@ class RepeatGlobalsTransform(AbstractTransform):
 
     def batched_transform(self, batch: Dict[str, np.ndarray]) -> np.ndarray:
         X_levels = batch[LEVELS]
-        X_layers = einops.rearrange(
-            np.pad(einops.rearrange(batch[LAYERS], 'b c f -> ()b c f'), pad_width=(0, 0, 1, 0), mode='reflect'),
-            '()b c f -> b c f'
-        )
         X_global = einops.repeat(batch[GLOBALS], 'b f -> b c f', c=50)
+        X_layers = einops.rearrange(batch[LAYERS], 'b c f -> ()b c f')
+        X_layers = np.pad(X_layers, pad_width=((0, 0), (0, 0), (0, 1), (0, 0)), mode='reflect')
+        # X_layers = np.pad(X_layers, pad_width=(0, 0, 1, 0), mode='reflect')
+        X_layers = einops.rearrange(X_layers, '()b c f -> b c f')
 
         X = np.concatenate([X_levels, X_layers, X_global], axis=-1)
         return einops.rearrange(X, 'b c f -> b f c')
 
 
 # -------------------------------------------- Graph specific transforms
-class AbstractGraphTransform(AbstractTransform):
+class AbstractGraphTransform(AbstractTransform, ABC):
     def __init__(self, exp_type: str):
         super().__init__(exp_type)
 

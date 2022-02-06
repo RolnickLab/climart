@@ -25,7 +25,10 @@ class CNN_Net(BaseModel):
         super().__init__(*args, **kwargs)
         self.save_hyperparameters()
         self.output_dim = self.raw_output_dim
-        self.channel_list = hidden_dims
+        self.channel_list = list(hidden_dims)
+        input_dim = self.input_transform.output_dim
+        self.channel_list = [input_dim] + self.channel_list
+
         self.linear_in_shape = 10
         self.use_linear = gap
         self.ratio = 16

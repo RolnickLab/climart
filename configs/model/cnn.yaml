@@ -1,6 +1,6 @@
 _target_: climart.models.CNNs.CNN.CNN_Net
 
-hidden_dims: [131, 256, 256]
+hidden_dims: [256, 256, 256]
 net_normalization: null
 activation_function: "Gelu"
 dropout: 0.0
