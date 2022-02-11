@@ -42,7 +42,7 @@ datamodule:
   load_test_into_mem: False
   verbose: ${verbose}
   # path to folder with data (optional, can also override constants.DATA_DIR to point to correct dir)
-  data_dir: "/network/scratch/s/salva.ruhling-cachay/climart/hdf5"  # null
+  data_dir: "ClimART_DATA"  # null
 
 normalizer:
   _target_: climart.data_transform.normalization.Normalizer

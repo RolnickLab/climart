@@ -79,7 +79,8 @@ To reproduce our paper results (for seed = 7), you may choose any of our pre-def
  ```
 # You can replace mlp with "graphnet", "gcn", or "cnn" to run a different ML model
 # To train on the CPU, choose trainer.gpus=0
-python run.py seed=7 model=mlp trainer.gpus=1  
+# Specify the directory where the CLimART data is saved with datamodule.data_dir="<your-data-dir>"
+python run.py seed=7 model=mlp trainer.gpus=1 
 ```
  
 ## Tips
