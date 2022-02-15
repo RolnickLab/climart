@@ -11,7 +11,7 @@ input_transform:
   exp_type: ${datamodule.exp_type}
 
 update_mlp_n_layers: 1
-aggregator_func: "mean"
+aggregator_funcs: "mean"
 graph_pooling: "mean"
 readout_which_output: "nodes"
 
