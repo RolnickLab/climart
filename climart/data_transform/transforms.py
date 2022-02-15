@@ -6,7 +6,7 @@ import numpy as np
 import torch
 from torch import Tensor
 
-from climart.data_loading.constants import LEVELS, LAYERS, GLOBALS, get_data_dims
+from climart.data_loading.constants import LEVELS, LAYERS, GLOBALS, get_data_dims, INPUT_TYPES
 from climart.models.GraphNet.constants import NODES, EDGES
 from climart.models.modules.additional_layers import FeatureProjector
 from climart.utils.utils import get_logger, normalize_adjacency_matrix_torch
@@ -78,11 +78,11 @@ class FlattenTransform(AbstractTransform):
         self._out_dim = sum(self.input_dim.values())
 
     def transform(self, X: Dict[str, np.ndarray]) -> np.ndarray:
-        return np.concatenate([subX.flatten() for subX in X.values()], axis=0)
+        return np.concatenate([X[key].flatten() for key in INPUT_TYPES], axis=0)
         # return np.concatenate([torch.flatten(subX) for subX in X.values()], dim=0)
 
     def batched_transform(self, X: Dict[str, np.ndarray]) -> np.ndarray:
-        return np.concatenate([subX.reshape((subX.shape[0], -1)) for subX in X.values()], axis=1)
+        return np.concatenate([X[key].reshape((X[key].shape[0], -1)) for key in INPUT_TYPES], axis=1)
         # return torch.cat([torch.flatten(subX, start_dim=1).unsqueeze(1) for subX in X.values()], dim=1)
 
 

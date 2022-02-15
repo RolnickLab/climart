@@ -17,7 +17,7 @@ from climart.data_loading import constants
 from climart.data_transform.normalization import Normalizer
 from climart.data_transform.normalization import NormalizationMethod
 from climart.data_transform.transforms import AbstractTransform, IdentityTransform
-from climart.utils.utils import get_logger, identity, get_target_variable_names, pressure_from_level_array
+from climart.utils.utils import get_logger, get_target_variable_names, pressure_from_level_array
 
 log = get_logger(__name__)
 
@@ -61,6 +61,7 @@ class ClimART_HdF5_Dataset(torch.utils.data.Dataset):
         self._layer_mask = 45 if exp_type == constants.CLEAR_SKY else 14
 
         if data_dir is None:
+            log.info(" No data_dir was specified, defaulting to climart.data_loading.constants.DATA_DIR")
             data_dir = constants.DATA_DIR
 
         self.dataset_index_to_sub_dataset: Dict[int, Tuple[int, int]] = dict()
@@ -126,7 +127,8 @@ class ClimART_HdF5_Dataset(torch.utils.data.Dataset):
         else:
             Xs = self.normalizer(raw_Xs['data'])
             Xs = self._input_transform.transform(Xs)
-            X = {'data': Xs, 'level_pressure_profile': raw_Xs['level_pressure_profile']}
+            X = {'data': Xs,
+                 'level_pressure_profile': raw_Xs['level_pressure_profile']                }
 
             Y = self._output_transform.transform(raw_Ys)
             Y = {k: torch.from_numpy(v).float() for k, v in Y.items()}
@@ -291,7 +293,9 @@ class RT_HdF5_FastSingleDatasetTwo(RT_HdF5_SingleDataset):
             LEVELS: np.array(self.input_data[LEVELS][index]),
             GLOBALS: np.array(self.input_data[GLOBALS][index])
         }
-        X = {'data': X, 'level_pressure_profile': pressure_from_level_array(X[LEVELS])}
+        X = {'data': X,
+             'level_pressure_profile': pressure_from_level_array(X[LEVELS])
+             }
         Y = {
             output_var: np.array(self.output_data[output_var][index])
             for output_var in self._target_variables
@@ -310,7 +314,11 @@ def get_processed_fname(h5_name: str, ending='.npz', **kwargs):
         elif isinstance(v, NormalizationMethod) or isinstance(v, AbstractTransform):
             name = v.__class__.__name__
         else:
-            name = v.__qualname__.replace('.', '_')
+            try:
+                name = v.__qualname__.replace('.', '_')
+            except Exception as e:
+                print(e)
+                name = "?"
         processed += f'_{name}{k}'
     return processed + f'{ending}'
 
@@ -405,10 +413,15 @@ class RT_HdF5_FastSingleDataset(RT_HdF5_SingleDataset):
                 level_pressure_profile = pressure_from_level_array(input_data[LEVELS])
 
             if input_normalizer is not None:
-                input_data = {k: input_normalizer[k](input_data[k]) for k in constants.INPUT_TYPES}
+                for k in constants.INPUT_TYPES:
+                    input_data[k] = input_normalizer[k](input_data[k])
+
             if input_transform is not None:
                 input_data = input_transform.batched_transform(input_data)
-            self.input_data = {'data': input_data, 'level_pressure_profile': level_pressure_profile}
+            self.input_data = {
+                'data': input_data,
+                'level_pressure_profile': level_pressure_profile
+            }
 
         if outputs:
             with h5py.File(self.output_path, 'r') as output_data_h5:
@@ -425,11 +438,18 @@ class RT_HdF5_FastSingleDataset(RT_HdF5_SingleDataset):
         pass
 
     def __getitem__(self, index) -> (Dict[str, np.ndarray], Dict[str, np.ndarray]):
+        if isinstance(self.input_data['data'], np.ndarray) and len(self.input_data['data'].shape) == 0:
+            # Recover a nested dictionary of np arrays back, i.e. transform np.ndarray of object dtype into dict
+            self.input_data['data'] = self.input_data['data'].item()
+
         if isinstance(self.input_data['data'], np.ndarray):
             X = torch.from_numpy(self.input_data['data'][index]).float()
         else:
             X = {k: torch.from_numpy(v[index]).float() for k, v in self.input_data['data'].items()}
-        X = {'data': X, 'level_pressure_profile': torch.from_numpy(self.input_data['level_pressure_profile'][index]).float()}
+
+        X = {'data': X,
+             'level_pressure_profile': torch.from_numpy(self.input_data['level_pressure_profile'][index]).float()
+             }
 
         if isinstance(self.output_data, np.ndarray):
             Y = torch.from_numpy(self.output_data[index]).float()
