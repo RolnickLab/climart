@@ -5,6 +5,7 @@ import numpy as np
 from typing import Optional, Dict
 
 import xarray
+from hydra.utils import get_original_cwd, to_absolute_path
 
 GLOBALS = "globals"
 LAYERS = "layers"
@@ -36,7 +37,8 @@ OOD_FUTURE_YEARS = [2097, 2098, 2099]
 OOD_HISTORIC_YEARS = [1850, 1851, 1852]
 ALL_YEARS = TRAIN_YEARS + VAL_YEARS + TEST_YEARS + OOD_PRESENT_YEARS + OOD_FUTURE_YEARS + OOD_HISTORIC_YEARS
 
-DATA_DIR = "ClimART_DATA/"
+# DATA_DIR should be an absolute path, since Hydra changes the working dir... to_absolute_path() solves this.
+DATA_DIR = to_absolute_path("ClimART_DATA/")
 
 
 def get_data_subdirs(data_dir: str) -> Dict[str, str]:
@@ -55,8 +57,11 @@ def get_metadata(data_dir: str = None):
     path = os.path.join(data_dir, 'META_INFO.json')
 
     if not os.path.isfile(path):
-        err_msg = f' Not able to recover meta information from {path}'
-        raise ValueError(err_msg)
+        if os.path.isfile(to_absolute_path(path)):
+            path = to_absolute_path(path)
+        else:
+            err_msg = f' Not able to recover meta information from {path}, as it is not a file!'
+            raise ValueError(err_msg)
     with open(path, 'r') as fp:
         meta_info = json.load(fp)
     return meta_info
@@ -67,8 +72,11 @@ def get_statistics(data_dir: str = None):
         data_dir = DATA_DIR
     path = os.path.join(data_dir, 'statistics.npz')
     if not os.path.isfile(path):
-        err_msg = f' Not able to recover statistics file from {path}'
-        raise ValueError(err_msg)
+        if os.path.isfile(to_absolute_path(path)):
+            path = to_absolute_path(path)
+        else:
+            err_msg = f' Not able to recover statistics file from {path}'
+            raise ValueError(err_msg)
     statistics = np.load(path)
     return statistics
 

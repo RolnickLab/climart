@@ -42,7 +42,8 @@ datamodule:
   load_test_into_mem: False
   verbose: ${verbose}
   # path to folder with data (optional, can also override constants.DATA_DIR to point to correct dir)
-  data_dir: "ClimART_DATA"  # null
+  # Make sure that it is an absolute path! hydra.runtime.cwd points to the original working dir.
+  data_dir: "${hydra:runtime.cwd}/ClimART_DATA"  # null
 
 normalizer:
   _target_: climart.data_transform.normalization.Normalizer
