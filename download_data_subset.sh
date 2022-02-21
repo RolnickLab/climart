@@ -13,7 +13,8 @@ curl https://climart.blob.core.windows.net/climart-dataset/areacella_fx_CanESM5.
 echo "Done." 
 
 echo "Downloading input files..."
-for x in 1997 2005 2014 ;do  curl https://climart.blob.core.windows.net/climart-dataset/inputs/$x.h5 --output ${data_dir}/inputs/$x.h5; done
+for x in 2000 2005 ;do  curl https://climart.blob.core.windows.net/climart-dataset/inputs/$x.h5 --output ${data_dir}/inputs/$x.h5; done
+for x in {2007..2014} ;do  curl https://climart.blob.core.windows.net/climart-dataset/inputs/$x.h5 --output ${data_dir}/inputs/$x.h5; done
 #for x in {1979..1991};do  curl https://climart.blob.core.windows.net/climart-dataset/inputs/$x.h5 --output ${data_dir}/inputs/$x.h5; done
 #for x in {1994..2014};do  curl https://climart.blob.core.windows.net/climart-dataset/inputs/$x.h5 --output ${data_dir}/inputs/$x.h5; done
 #for x in 1850 1851 1852 ;do  curl https://climart.blob.core.windows.net/climart-dataset/inputs/$x.h5 --output ${data_dir}/inputs/$x.h5; done
@@ -28,7 +29,8 @@ echo "Downloading clear-sky targets..."
 echo "Done." 
 
 echo "Downloading pristine-sky targets..."
-for x in 1997 2005 2014 ;do  curl https://climart.blob.core.windows.net/climart-dataset/outputs_pristine/$x.h5 --output ${data_dir}/outputs_pristine/$x.h5; done
+for x in 2000 2005 ;do  curl https://climart.blob.core.windows.net/climart-dataset/outputs_pristine/$x.h5 --output ${data_dir}/outputs_pristine/$x.h5; done
+for x in {2007..2014} ;do  curl https://climart.blob.core.windows.net/climart-dataset/outputs_pristine/$x.h5 --output ${data_dir}/outputs_pristine/$x.h5; done
 #for x in {1979..1991};do  curl https://climart.blob.core.windows.net/climart-dataset/outputs_pristine/$x.h5 --output ${data_dir}/outputs_pristine/$x.h5; done
 #for x in {1994..2014};do  curl https://climart.blob.core.windows.net/climart-dataset/outputs_pristine/$x.h5 --output ${data_dir}/outputs_pristine/$x.h5; done
 #for x in 1850 1851 1852 ;do  curl https://climart.blob.core.windows.net/climart-dataset/outputs_pristine/$x.h5 --output ${data_dir}/outputs_pristine/$x.h5; done
