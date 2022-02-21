@@ -33,7 +33,6 @@ def run_model(config: DictConfig):
     emulator_model: BaseModel = hydra_instantiate(
         config.model, _recursive_=False,
         datamodule_config=config.datamodule,
-        output_postprocesser=normalizer.output_variable_splitter,
         output_normalizer=normalizer.output_normalizer
     )
 
@@ -77,7 +76,6 @@ def run_model(config: DictConfig):
     final_model = emulator_model.load_from_checkpoint(
         trainer.checkpoint_callback.best_model_path,
         datamodule_config=config.datamodule,
-        output_postprocesser=normalizer.output_variable_splitter,
         output_normalizer=normalizer.output_normalizer
     )
 

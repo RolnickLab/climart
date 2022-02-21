@@ -7,7 +7,6 @@ import torch
 from torch import Tensor
 from climart.data_loading.constants import LEVELS, LAYERS, GLOBALS, get_metadata, get_statistics
 from climart.data_loading import constants
-from climart.utils.callbacks import PredictionPostProcessCallback
 from climart.utils.utils import get_logger, get_target_variable_names, get_identity_callable, identity
 
 NP_ARRAY_MAPPING = Callable[[np.ndarray], np.ndarray]
@@ -231,7 +230,7 @@ class Normalizer:
             log.setLevel(logging.WARNING)
 
         if data_dir is None:
-            data_dir = constants.DATA_DIR
+            data_dir = datamodule_config.get("data_dir") or constants.DATA_DIR
         exp_type = datamodule_config.get("exp_type")
         target_type = datamodule_config.get("target_type")
         target_variable = datamodule_config.get("target_variable")
@@ -242,11 +241,6 @@ class Normalizer:
         self._output_normalizer = None
 
         self._target_variables = get_target_variable_names(target_type, target_variable)
-        print(datamodule_config, exp_type, "!!!!!!!!!!!!!!!!!!!!!!!!!\n")
-        self.output_variable_splitter = PredictionPostProcessCallback(
-            variable_to_channel=self.feature_by_var[f"outputs_{exp_type}"], variables=self._target_variables,
-        )
-
         if input_normalization:
             norma_type = '_spatial' if spatial_normalization_in else ''
             info_msg = f" Applying {norma_type.lstrip('_')} {input_normalization} normalization to input data," \

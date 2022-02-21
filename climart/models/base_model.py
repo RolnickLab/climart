@@ -10,8 +10,9 @@ from omegaconf import DictConfig
 from torch import Tensor
 from pytorch_lightning import LightningModule
 
-from climart.data_loading.constants import TEST_YEARS, get_data_dims
+from climart.data_loading.constants import TEST_YEARS, get_data_dims, LAYERS, LEVELS
 from climart.data_transform.transforms import AbstractTransform
+from climart.utils.callbacks import PredictionPostProcessCallback
 from climart.utils.evaluation import evaluate_per_target_variable
 from climart.utils.optimization import get_loss, get_trainable_params
 from climart.data_transform.normalization import NormalizationMethod
@@ -54,7 +55,6 @@ class BaseModel(LightningModule):
                  train_on_raw_targets: bool = True,
                  input_transform: Optional[AbstractTransform] = None,
                  output_normalizer: Optional[NormalizationMethod] = None,
-                 output_postprocesser=None,
                  out_layer_bias_init: Optional[np.ndarray] = None,
                  name: str = "",
                  verbose: bool = True,
@@ -72,19 +72,14 @@ class BaseModel(LightningModule):
             self.input_transform = hydra.utils.instantiate(input_transform)
         if datamodule_config is not None:
             input_output_dimensions = get_data_dims(exp_type=datamodule_config.get("exp_type"))
+            self.raw_input_dim = input_output_dimensions['input_dim']
             self.raw_output_dim = input_output_dimensions['output_dim']
             self.raw_spatial_dim = input_output_dimensions['spatial_dim']
-            self.raw_input_dim = input_output_dimensions['input_dim']
+            self.num_layers = self.raw_spatial_dim[LAYERS]
+            self.num_levels = self.raw_spatial_dim[LEVELS]
 
         self._train_on_raw_targets = train_on_raw_targets
         self.output_normalizer = output_normalizer.copy() if isinstance(output_normalizer, NormalizationMethod) else None
-        if self.output_normalizer is not None and hasattr(self.output_normalizer, 'var_splitter'):
-            self.output_postprocesser = self.output_normalizer.var_splitter
-        else:
-            self.output_postprocesser = output_postprocesser
-        if self.output_postprocesser is not None:
-            self.log_text.info(' Using an output channel-by-variable splitter.')
-
         if out_layer_bias_init is not None:
             self.out_layer_bias_init = out_layer_bias_init if torch.is_tensor(
                 out_layer_bias_init) else torch.from_numpy(out_layer_bias_init)
@@ -107,6 +102,9 @@ class BaseModel(LightningModule):
             self._upwelling_flux_id = f"r{self.target_type}uc"
             self._heating_rate_id = f"hr{self.target_type}c"
             self._out_var_ids = [self._downwelling_flux_id, self._upwelling_flux_id, self._heating_rate_id]
+            flux_var_ids = [self._downwelling_flux_id, self._downwelling_flux_id]
+            self.output_postprocesser = PredictionPostProcessCallback(variables=flux_var_ids, sizes=self.num_levels)
+
         self.upwelling_loss_contribution = upwelling_loss_contribution
         self.downwelling_loss_contribution = downwelling_loss_contribution
         self.heating_rate_loss_contribution = heating_rate_loss_contribution

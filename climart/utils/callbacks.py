@@ -1,4 +1,4 @@
-from typing import Optional, Dict, List, Union
+from typing import Optional, Dict, List, Union, Sequence
 import numpy as np
 import torch
 
@@ -40,14 +40,15 @@ class TestingScheduleCallback:
 
 class PredictionPostProcessCallback:
     def __init__(self,
-                 variable_to_channel: Optional[Dict[str, Dict[str, int]]],
-                 variables: List[str]
+                 variables: List[str],
+                 sizes: Union[int, Sequence[int]]
                  ):
         self.variable_to_channel = dict()
         cur = 0
-        for var in variables:
-            self.variable_to_channel[var] = {'start': cur, 'end': cur + variable_to_channel[var]['end']}
-            cur += variable_to_channel[var]['end']
+        sizes = [sizes for _ in range(len(variables))] if isinstance(sizes, int) else sizes
+        for var, size in zip(variables, sizes):
+            self.variable_to_channel[var] = {'start': cur, 'end': cur + size}
+            cur += size
 
     def split_vector_by_variable(self,
                                  vector: Union[np.ndarray, torch.Tensor]
@@ -61,5 +62,3 @@ class PredictionPostProcessCallback:
 
     def __call__(self, vector, *args, **kwargs):
         return self.split_vector_by_variable(vector)
-
-

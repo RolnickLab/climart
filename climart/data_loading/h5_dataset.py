@@ -171,7 +171,6 @@ class RT_HdF5_SingleDataset(torch.utils.data.Dataset):
         in_dir, out_dir = dirs[constants.INPUTS], dirs[exp_type]
         self._in_path = os.path.join(in_dir, filename)
         self._out_path = os.path.join(out_dir, filename)
-
         with h5py.File(self._in_path, 'r') as h5f:
             self._num_examples = h5f[LAYERS].shape[0]
             n_levels = h5f[LEVELS].shape[1]
