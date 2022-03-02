@@ -174,7 +174,7 @@ def extras(config) -> None:
         if config.datamodule.get("pin_memory"):
             config.datamodule.pin_memory = False
 
-    if config.logger.get("wandb"):
+    if "logger" in config.keys() and config.logger.get("wandb"):
         import wandb
         wandb_id = wandb.util.generate_id()
         config.logger.wandb.id = wandb_id
