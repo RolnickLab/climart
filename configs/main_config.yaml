@@ -31,7 +31,7 @@ datamodule:
   exp_type: "pristine"
   target_type: "shortwave"
   target_variable: "fluxes+heating_rate"
-  train_years:  "1999-2000"
+  train_years:  "2000"
   validation_years: "2005"
   batch_size: 128
   eval_batch_size: 512
