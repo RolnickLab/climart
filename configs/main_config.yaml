@@ -40,6 +40,9 @@ datamodule:
   load_train_into_mem: True
   load_valid_into_mem: True
   load_test_into_mem: False
+  test_ood_1991: False
+  test_ood_historic: False
+  test_ood_future: False
   verbose: ${verbose}
   # path to folder with data (optional, can also override constants.DATA_DIR to point to correct dir)
   # Make sure that it is an absolute path! hydra.runtime.cwd points to the original working dir.
