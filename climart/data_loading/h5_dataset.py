@@ -128,7 +128,7 @@ class ClimART_HdF5_Dataset(torch.utils.data.Dataset):
             Xs = self.normalizer(raw_Xs['data'])
             Xs = self._input_transform.transform(Xs)
             X = {'data': Xs,
-                 'level_pressure_profile': raw_Xs['level_pressure_profile']                }
+                 'level_pressure_profile': raw_Xs['level_pressure_profile']}
 
             Y = self._output_transform.transform(raw_Ys)
             Y = {k: torch.from_numpy(v).float() for k, v in Y.items()}
@@ -339,9 +339,9 @@ class RT_HdF5_FastSingleDataset(RT_HdF5_SingleDataset):
         ending = '.npz' if self.exp_type == 'pristine' else f"_{self.exp_type}.npz"
         input_processed_fname = get_processed_fname(self.input_path, **pkwargs, ending=ending)
         output_processed_fname = get_processed_fname(self.output_path, **pkwargs, ending='.npz')
-        #if os.path.isfile(input_processed_fname) and reload_if_exists:
+        # if os.path.isfile(input_processed_fname) and reload_if_exists:
         #    self.input_data = self._reload_data(input_processed_fname)
-        #if os.path.isfile(output_processed_fname) and reload_if_exists:
+        # if os.path.isfile(output_processed_fname) and reload_if_exists:
         #    self.output_data = self._reload_data(output_processed_fname)
 
         if os.path.isfile(input_processed_fname) and os.path.isfile(output_processed_fname) and reload_if_exists:

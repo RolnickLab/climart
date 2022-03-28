@@ -102,7 +102,7 @@ class BaseModel(LightningModule):
             self._upwelling_flux_id = f"r{self.target_type}uc"
             self._heating_rate_id = f"hr{self.target_type}c"
             self._out_var_ids = [self._downwelling_flux_id, self._upwelling_flux_id, self._heating_rate_id]
-            flux_var_ids = [self._downwelling_flux_id, self._downwelling_flux_id]
+            flux_var_ids = [self._downwelling_flux_id, self._upwelling_flux_id]
             self.output_postprocesser = PredictionPostProcessCallback(variables=flux_var_ids, sizes=self.num_levels)
 
         self.upwelling_loss_contribution = upwelling_loss_contribution
