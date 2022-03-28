@@ -44,16 +44,16 @@ ClimART poses several methodological challenges for the ML community, such as mu
     To download the train/val/test years you want, please change the loop in ``data_download.sh.`` appropriately.
     To download the whole ClimART dataset, you can simply run 
     
-    bash scripts/download_climart.sh 
+    sudo bash download_climart.sh 
    </p>
 </details>
-
+       
+  **Note:** If you have issues with downloading the data please let us know to help you.
 
     conda env create -f env.yml   # create new environment will all dependencies
     conda activate climart  # activate the environment called 'climart'
-    bash download_data_subset.sh  # download the dataset (or a subset of it, see above)
-    python run.py trainer.gpus=0 datamodule.train_years="2000"  # train a MLP emulator
-
+    sudo bash download_data_subset.sh  # download the dataset (or a subset of it, see above)
+    python run.py trainer.gpus=0 datamodule.train_years="1999"  # train a MLP emulator
 
 ## Data Structure
 
