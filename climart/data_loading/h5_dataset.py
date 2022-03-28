@@ -392,6 +392,9 @@ class RT_HdF5_FastSingleDataset(RT_HdF5_SingleDataset):
             except OverflowError:
                 with open(fname, "wb") as fp:
                     pickle.dump(data, fp, pickle.HIGHEST_PROTOCOL)
+            except PermissionError as e:
+                log.warning(f" Tried to cache data to {fname} but got error {e}. "
+                            f"Consider adjusting the permissions to cache the data and make training more efficient.")
         else:
             raise ValueError(f"Data has type {type(data)}")
 
