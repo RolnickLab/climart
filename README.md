@@ -80,6 +80,7 @@ To reproduce our paper results (for seed = 7), you may choose any of our pre-def
 # You can replace mlp with "graphnet", "gcn", or "cnn" to run a different ML model
 # To train on the CPU, choose trainer.gpus=0
 # Specify the directory where the CLimART data is saved with datamodule.data_dir="<your-data-dir>"
+# Test on the OOD subsets by setting arg datamodule.{test_ood_historic, test_ood_1991, test_ood_future}=True
 python run.py seed=7 model=mlp trainer.gpus=1 
 ```
  
@@ -91,6 +92,16 @@ python run.py seed=7 model=mlp trainer.gpus=1
     To best reproduce our baselines and experiments and/or look into how the ClimART dataset was created/designed,
     have a look at our `research_code` branch. It operates on pure PyTorch and has a less clean interface/code 
     than our main branch -- if you have any questions, let us know!
+</p></details>
+
+<details><p>
+    <summary><b> Testing on OOD data subsets </b></summary>
+    <p style="padding: 10px; border: 2px solid #ff0000;">
+    By default tests run on the main test dataset only (2007-14), to test on the 
+    historic, future or anomaly test subsets you need to pass/change the arg
+    ``datamodule.{test_ood_historic=True`` (and/or ``test_ood_future``, ``test_ood_1991``)
+    (besides downloading those data files, e.g. via the ``download_climart.sh`` script).
+
 </p></details>
 
 
