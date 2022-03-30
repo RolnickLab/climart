@@ -99,8 +99,8 @@ python run.py seed=7 model=mlp trainer.gpus=1
     <p style="padding: 10px; border: 2px solid #ff0000;">
     By default tests run on the main test dataset only (2007-14), to test on the 
     historic, future or anomaly test subsets you need to pass/change the arg
-    ``datamodule.{test_ood_historic=True`` (and/or ``test_ood_future``, ``test_ood_1991``)
-    (besides downloading those data files, e.g. via the ``download_climart.sh`` script).
+    <code>datamodule.test_ood_historic=True</code> (and/or <code>test_ood_future=True</code>, <code>test_ood_1991=True</code>),
+     besides downloading those data files, e.g. via the <code>download_climart.sh</code> script.
 
 </p></details>
 
