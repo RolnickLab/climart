@@ -49,6 +49,7 @@ class ClimartDataModule(LightningDataModule):
             load_train_into_mem: bool = False,
             load_test_into_mem: bool = False,
             load_valid_into_mem: bool = True,
+            test_main_dataset: bool = True,
             test_ood_1991: bool = True,
             test_ood_historic: bool = True,
             test_ood_future: bool = True,
@@ -64,6 +65,7 @@ class ClimartDataModule(LightningDataModule):
             eval_batch_size (int): Batch size for the test and validation dataloader's
             num_workers (int): Dataloader arg for higher efficiency
             pin_memory (bool): Dataloader arg for higher efficiency
+            test_main_dataset (bool): Whether to test and compute metrics on main test dataset (2007-14). Default: True
             test_ood_1991 (bool): Whether to test and compute metrics on OOD/anomaly test year 1991. Default: True
             test_ood_historic (bool): Whether to test and compute metrics on historic test years 1850-52. Default: True
             test_ood_future (bool): Whether to test and compute metrics on future test years 2097-99. Default: True
@@ -79,7 +81,6 @@ class ClimartDataModule(LightningDataModule):
         self._data_val: Optional[ClimART_HdF5_Dataset] = None
         self._data_test: Optional[List[ClimART_HdF5_Dataset]] = None
         self._test_set_names: Optional[List[str]] = None
-
 
     def prepare_data(self):
         """Download data if needed. This method is called only from a single GPU.
@@ -97,44 +98,55 @@ class ClimartDataModule(LightningDataModule):
             input_transform=self.input_transform,
             normalizer=self.normalizer,
         )
-        # Get & check list of training/validation years
-        train_years = year_string_to_list(self.hparams.train_years)
-        val_years = year_string_to_list(self.hparams.validation_years)
-        assert all([y in TRAIN_YEARS for y in train_years]), f"All years in --train_years must be in {TRAIN_YEARS}!"
-        assert all([y in VAL_YEARS for y in val_years]), f"All years in --validation_years must be in {VAL_YEARS}!"
 
         # Training set:
-        self._data_train = ClimART_HdF5_Dataset(years=train_years, name='Train',
-                                                load_h5_into_mem=self.hparams.load_train_into_mem,
-                                                **dataset_kwargs)
-        # Validation set:
-        self._data_val = ClimART_HdF5_Dataset(years=val_years, name='Val',
-                                              load_h5_into_mem=self.hparams.load_valid_into_mem,
-                                              **dataset_kwargs)
-        # Test sets:
-        #    - Main Present-day Test Set(s):
-        #       To compute metrics for each test year -> use a separate dataloader for each of the test years (2007-14).
-        dataset_kwargs["load_h5_into_mem"] = self.hparams.load_test_into_mem
-        test_sets = [
-            ClimART_HdF5_Dataset(years=[test_year], name=f'Test_{test_year}', **dataset_kwargs)
-            for test_year in TEST_YEARS
-        ]
-        #   - OOD Test Sets:
-        ood_test_sets = []
-        if self.hparams.test_ood_1991:
-            # 1991 OOD test year accounts for Mt. Pinatubo eruption - especially challenging for clear-sky conditions
-            ood_test_sets += [ClimART_HdF5_Dataset(years=OOD_PRESENT_YEARS, name='OOD Test', **dataset_kwargs)]
-        if self.hparams.test_ood_historic:
-            ood_test_sets += [ClimART_HdF5_Dataset(years=OOD_HISTORIC_YEARS, name='Historic Test', **dataset_kwargs)]
-        if self.hparams.test_ood_future:
-            ood_test_sets += [ClimART_HdF5_Dataset(years=OOD_FUTURE_YEARS, name='Future Test', **dataset_kwargs)]
+        if stage == "fit" or stage is None:
+            # Get & check list of training/validation years
+            train_years = year_string_to_list(self.hparams.train_years)
+            assert all([y in TRAIN_YEARS for y in train_years]), f"All years in --train_years must be in {TRAIN_YEARS}!"
 
-        self._data_test = test_sets + ood_test_sets
+            self._data_train = ClimART_HdF5_Dataset(years=train_years, name='Train',
+                                                    load_h5_into_mem=self.hparams.load_train_into_mem,
+                                                    **dataset_kwargs)
+            # Validation set:
+            if self.hparams.validation_years is not None:
+                val_yrs = year_string_to_list(self.hparams.validation_years)
+                assert all([y in VAL_YEARS for y in val_yrs]), f'All years in --validation_years must be in {VAL_YEARS}!'
+                self._data_val = ClimART_HdF5_Dataset(years=val_yrs, name='Val',
+                                                      load_h5_into_mem=self.hparams.load_valid_into_mem,
+                                                      **dataset_kwargs)
+        # Test sets:
+        #       - Main Present-day Test Set(s):
+        #       To compute metrics for each test year -> use a separate dataloader for each of the test years (2007-14).
+        if stage == "test" or stage is None:
+            dataset_kwargs["load_h5_into_mem"] = self.hparams.load_test_into_mem
+            if self.hparams.test_main_dataset:
+                test_sets = [
+                    ClimART_HdF5_Dataset(years=[test_year], name=f'Test_{test_year}', **dataset_kwargs)
+                    for test_year in TEST_YEARS
+                ]
+            else:
+                test_sets = []
+                log.info(" Main test dataset (2007-14) will not be tested on in this run.")
+            #   - OOD Test Sets:
+            ood_test_sets = []
+            if self.hparams.test_ood_1991:
+                # 1991 OOD test year accounts for Mt. Pinatubo eruption: especially challenging for clear-sky conditions
+                ood_test_sets += [ClimART_HdF5_Dataset(years=OOD_PRESENT_YEARS, name='OOD Test', **dataset_kwargs)]
+            if self.hparams.test_ood_historic:
+                ood_test_sets += [
+                    ClimART_HdF5_Dataset(years=OOD_HISTORIC_YEARS, name='Historic Test', **dataset_kwargs)]
+            if self.hparams.test_ood_future:
+                ood_test_sets += [ClimART_HdF5_Dataset(years=OOD_FUTURE_YEARS, name='Future Test', **dataset_kwargs)]
+
+            self._data_test = test_sets + ood_test_sets
 
     @property
     def test_set_names(self) -> List[str]:
         if self._test_set_names is None:
-            test_names = [f'{test_year}' for test_year in TEST_YEARS]
+            test_names = []
+            if self.hparams.test_main_dataset:
+                test_names += [f'{test_year}' for test_year in TEST_YEARS]
             if self.hparams.test_ood_1991:
                 test_names += ['OOD']
             if self.hparams.test_ood_historic:
@@ -166,7 +178,7 @@ class ClimartDataModule(LightningDataModule):
             num_workers=self.hparams.num_workers,
             pin_memory=self.hparams.pin_memory,
             shuffle=False,
-        )
+        ) if self._data_val is not None else None
 
     def test_dataloader(self) -> List[DataLoader]:
         return [DataLoader(
