@@ -40,6 +40,7 @@ datamodule:
   load_train_into_mem: True
   load_valid_into_mem: True
   load_test_into_mem: False
+  test_main_dataset: True
   test_ood_1991: False
   test_ood_historic: False
   test_ood_future: False
