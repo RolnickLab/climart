@@ -53,7 +53,7 @@ ClimART poses several methodological challenges for the ML community, such as mu
     conda env create -f env.yml   # create new environment will all dependencies
     conda activate climart  # activate the environment called 'climart'
     sudo bash download_data_subset.sh  # download the dataset (or a subset of it, see above)
-    python run.py trainer.gpus=0 datamodule.train_years="1999" datamodule.test_ood_1991=False  # train a MLP emulator
+    python run.py trainer.gpus=0 datamodule.train_years="2000" # train a MLP emulator on 2000
 
 ## Data Structure
 
