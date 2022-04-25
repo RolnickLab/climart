@@ -7,6 +7,7 @@ import torch
 from torch import Tensor
 from climart.data_loading.constants import LEVELS, LAYERS, GLOBALS, get_metadata, get_statistics
 from climart.data_loading import constants
+from climart.data_loading.data_variables import get_flux_output_variables
 from climart.utils.utils import get_logger, get_target_variable_names, get_identity_callable, identity
 
 NP_ARRAY_MAPPING = Callable[[np.ndarray], np.ndarray]
@@ -70,15 +71,12 @@ class NormalizationMethod(ABC):
 
 
 class Z_Normalizer(NormalizationMethod):
-    def __init__(self, mean=None, std=None, **kwargs):
+    def __init__(self, mean, std, **kwargs):
         super().__init__(**kwargs)
         self.mean = mean
         self.std = std
 
-    def normalize(self, data, axis=None, compute_stats=True, *args, **kwargs):
-        if compute_stats or self.mean is None:
-            self.mean = np.mean(data, axis=axis)
-            self.std = np.std(data, axis=axis)
+    def normalize(self, data, axis=None, *args, **kwargs):
         return self(data)
 
     def inverse_normalize(self, normalized_data):
@@ -101,8 +99,8 @@ class MinMax_Normalizer(NormalizationMethod):
             self.max_minus_min = max_minus_min or max - min
 
     def normalize(self, data, axis=None, *args, **kwargs):
-        self.min = np.min(data, axis=axis)
-        self.max_minus_min = (np.max(data, axis=axis) - self.min)
+        # self.min = np.min(data, axis=axis)
+        # self.max_minus_min = (np.max(data, axis=axis) - self.min)
         return self(data)
 
     def inverse_normalize(self, normalized_data):
@@ -237,11 +235,11 @@ class Normalizer:
 
         self._layer_mask = 45 if exp_type == constants.CLEAR_SKY else 14
         self._recover_meta_info(data_dir)
-        self._input_normalizer: Dict[str, Callable] = dict()
-        self._output_normalizer = None
+        self._input_normalizer: Dict[str, NormalizationMethod] = dict()
+        self._output_normalizer: Optional[Dict[str, NormalizationMethod]] = None
 
         self._target_variables = get_target_variable_names(target_type, target_variable)
-        if input_normalization:
+        if input_normalization is not None:
             norma_type = '_spatial' if spatial_normalization_in else ''
             info_msg = f" Applying {norma_type.lstrip('_')} {input_normalization} normalization to input data," \
                        f" based on pre-computed stats."
@@ -291,12 +289,23 @@ class Normalizer:
                             normer_kwargs[k] = v[..., :self._layer_mask]
                     normalizer = get_normalizer(
                         input_normalization,
-                        **normer_kwargs,
-                        variable_to_channel=self.feature_by_var[data_type]
+                        **normer_kwargs
                     )
                 else:
                     normalizer = identity
                 self._input_normalizer[data_type] = normalizer
+        if output_normalization is not None:
+            self._output_normalizer = dict()
+            px = "spatial_" if spatial_normalization_out else ""
+            precomputed_stats = get_statistics(data_dir)
+            for tv in get_flux_output_variables(target_type):
+                normer_kwargs = dict(
+                        mean=precomputed_stats[f"outputs_{exp_type}_{tv}_{px}mean"],
+                        std=precomputed_stats[f"outputs_{exp_type}_{tv}_{px}std"],
+                        min=precomputed_stats[f"outputs_{exp_type}_{tv}_{px}min"],
+                        max=precomputed_stats[f"outputs_{exp_type}_{tv}_{px}max"],
+                    )
+                self._output_normalizer[tv] = get_normalizer(**normer_kwargs, normalizer=output_normalization)
 
     def _recover_meta_info(self, data_dir: str):
         meta_info = get_metadata(data_dir)
@@ -323,6 +332,7 @@ class Normalizer:
         if data_type in constants.INPUT_TYPES:
             self._input_normalizer[data_type] = new_normalizer
         else:
+            log.info(f" Setting output normalizer, after calling set_normalizer with data_type={data_type}")
             self._output_normalizer = new_normalizer
 
     def set_input_normalizers(self, new_normalizer: Optional[NP_ARRAY_MAPPING]):
@@ -331,8 +341,6 @@ class Normalizer:
 
     @property
     def output_normalizer(self):
-        if self._output_normalizer is None:
-            return None
         return self._output_normalizer
 
     def normalize(self, X: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:

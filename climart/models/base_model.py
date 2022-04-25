@@ -7,7 +7,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from omegaconf import DictConfig
-from torch import Tensor
+from torch import Tensor, nn
 from pytorch_lightning import LightningModule
 
 from climart.data_loading.constants import TEST_YEARS, get_data_dims, LAYERS, LEVELS
@@ -52,9 +52,8 @@ class BaseModel(LightningModule):
                  downwelling_loss_contribution: float = 0.5,
                  upwelling_loss_contribution: float = 0.5,
                  heating_rate_loss_contribution: float = 0.0,
-                 train_on_raw_targets: bool = True,
                  input_transform: Optional[AbstractTransform] = None,
-                 output_normalizer: Optional[NormalizationMethod] = None,
+                 output_normalizer: Optional[Dict[str, NormalizationMethod]] = None,
                  out_layer_bias_init: Optional[np.ndarray] = None,
                  name: str = "",
                  verbose: bool = True,
@@ -78,20 +77,20 @@ class BaseModel(LightningModule):
             self.num_layers = self.raw_spatial_dim[LAYERS]
             self.num_levels = self.raw_spatial_dim[LEVELS]
 
-        self._train_on_raw_targets = train_on_raw_targets
-        self.output_normalizer = output_normalizer.copy() if isinstance(output_normalizer, NormalizationMethod) else None
+        self.output_normalizer = output_normalizer.copy() if output_normalizer is not None else None
         if out_layer_bias_init is not None:
             self.out_layer_bias_init = out_layer_bias_init if torch.is_tensor(
                 out_layer_bias_init) else torch.from_numpy(out_layer_bias_init)
         else:
             self.out_layer_bias_init = None
 
-        if self.output_normalizer is not None:
-            normalizer_name = self.output_normalizer.__class__.__name__
-            self.log_text.info(f' Using an output inverse normalizer {normalizer_name} for prediction.')
-            self.output_normalizer.change_input_type(torch.Tensor)
+        if self.output_normalizer is None:
+            self.log_text.info(' No output normalization for outputs is used.')
         else:
-            self.log_text.info(' No inverse normalization for outputs is used.')
+            normalizer_name = list(self.output_normalizer.values())[0].__class__.__name__
+            self.log_text.info(f' Using output normalization "{normalizer_name}" for prediction.')
+            for v in self.output_normalizer.values():
+                v.change_input_type(torch.Tensor)
 
         # loss function
         self.criterion = get_loss(loss_function)
@@ -108,6 +107,8 @@ class BaseModel(LightningModule):
         self.upwelling_loss_contribution = upwelling_loss_contribution
         self.downwelling_loss_contribution = downwelling_loss_contribution
         self.heating_rate_loss_contribution = heating_rate_loss_contribution
+        if heating_rate_loss_contribution > 0 and self.output_normalizer is not None:
+            raise ValueError(" Computing errors on normalized heating rates is not supported yet.")
 
         self._start_validation_epoch_time = self._start_test_epoch_time = self._start_epoch_time = None
         # Metrics
@@ -125,8 +126,16 @@ class BaseModel(LightningModule):
         """
         raise NotImplementedError('Base model is an abstract class!')
 
+    def raw_predict(self, X) -> Dict[str, Tensor]:
+        X_feats = X['data']
+        if isinstance(self.input_transform, nn.Module):
+            X_feats = self.input_transform(X['data'])
+        Y = self(X_feats)  # Y might be in normalized scale or not
+        flux_profile_pred = self.output_postprocesser.split_vector_by_variable(Y)
+        return flux_profile_pred
+
     def predict(self, X, *args, **kwargs) -> Dict[str, Tensor]:
-        Y_normed = self(X['data'])
+        Y_normed = self.raw_predict(X)
         flux_prediction = self.model_output_to_fluxes(Y_normed, *args, **kwargs)
         heating_rate_profile_pred = fluxes_to_heating_rates(
             downwelling_flux=flux_prediction[self._downwelling_flux_id],
@@ -134,25 +143,20 @@ class BaseModel(LightningModule):
             pressure=X['level_pressure_profile'])
         return {**flux_prediction, self._heating_rate_id: heating_rate_profile_pred}
 
-    def model_output_to_fluxes(self, Y, *args, **kwargs) -> Dict[str, Tensor]:
-        if self.output_normalizer is not None:
-            Y = self.output_normalizer.inverse_normalize(Y)
-        flux_profile_pred = self._predict_all_fluxes(Y, *args, **kwargs)
-        # Split output variables back into separate vectors/predictions
-        flux_profile_pred = self.output_postprocesser.split_vector_by_variable(flux_profile_pred)
+    def model_output_to_fluxes(self, flux_profile_pred, *args, **kwargs) -> Dict[str, Tensor]:
         # downwelling_profile = flux_profile_pred[self._downwelling_flux_id]
         # upwelling_profile = flux_profile_pred[self._upwelling_flux_id]
+        for flux_type, flux_pred in flux_profile_pred.items():
+            if self.output_normalizer is not None:
+                flux_pred = self.output_normalizer[flux_type].inverse_normalize(flux_pred)
+            flux_pred = self._predict_flux(flux_pred, *args, **kwargs)
+            flux_profile_pred[flux_type] = flux_pred
+
         return flux_profile_pred
         # return dict(downwelling_flux=downwelling_profile, upwelling_flux=upwelling_profile)
 
-    def _predict_all_fluxes(self, Y, *args, **kwargs):
+    def _predict_flux(self, Y, *args, **kwargs):
         return F.relu(Y)
-
-    def _apply(self, fn):
-        super(BaseModel, self)._apply(fn)
-        if self.output_normalizer is not None:
-            self.output_normalizer.apply_torch_func(fn)
-        return self
 
     # --------------------- training with PyTorch Lightning
     def on_train_start(self) -> None:
@@ -163,21 +167,34 @@ class BaseModel(LightningModule):
 
     def training_step(self, batch: Any, batch_idx: int):
         X, Y = batch
-        # start_time = time.time()
 
-        # Directly predict full/raw/non-normalized outputs
-        preds = self.predict(X)
+        if self.output_normalizer is None:
+            # Directly predict full/raw/non-normalized outputs
+            preds = self.predict(X)
+        else:
+            # Predict normalized outputs
+            preds = self.raw_predict(X)
+
+        up = preds[self._upwelling_flux_id]
+        up_true = Y[self._upwelling_flux_id]
+        down = preds[self._downwelling_flux_id]
+        down_true = Y[self._downwelling_flux_id]
+        if self.output_normalizer is not None:
+            # normalize targets
+            up_true = self.output_normalizer[self._upwelling_flux_id].normalize(up_true)
+            down_true = self.output_normalizer[self._downwelling_flux_id].normalize(down_true)
 
         train_log = dict()
         l1 = l2 = l3 = 0
-        if self.downwelling_loss_contribution > 0:
-            l1 = self.upwelling_loss_contribution * self.criterion(preds[self._upwelling_flux_id], Y[self._upwelling_flux_id])
+        if self.upwelling_loss_contribution > 0:
+            l1 = self.upwelling_loss_contribution * self.criterion(up, up_true)
             train_log["train/loss_upwelling"] = l1
         if self.downwelling_loss_contribution > 0:
-            l2 = self.downwelling_loss_contribution*self.criterion(preds[self._downwelling_flux_id], Y[self._downwelling_flux_id])
+            l2 = self.downwelling_loss_contribution * self.criterion(down, down_true)
             train_log["train/loss_downwelling"] = l2
-        if self.heating_rate_loss_contribution > 0:
-            l3 = self.heating_rate_loss_contribution*self.criterion(preds[self._heating_rate_id], Y[self._heating_rate_id])
+        if self.output_normalizer is None and self.heating_rate_loss_contribution > 0:
+            hr = preds[self._heating_rate_id]
+            l3 = self.heating_rate_loss_contribution * self.criterion(hr, Y[self._heating_rate_id])
             train_log["train/loss_heating_rate"] = l3
         loss = l1 + l2 + l3
 

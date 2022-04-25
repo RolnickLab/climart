@@ -111,10 +111,21 @@ INPUT_VARS_AEROSOLS = [
     'lw_abs_sa'  # heating rate (short-wave?)
 ]
 
+
 # -----------------------------------------------------
 
 def no_clouds_exp(name):
     return name in ['pristine', 'clear-sky', 'clearsky', 'clear_sky', 'aerosols']
+
+
+def get_flux_output_variables(target_type: str):
+    if target_type.lower() == "shortwave":
+        return OUT_SHORTWAVE_NOCLOUDS
+    if target_type.lower() == "longwave":
+        return OUT_LONGWAVE_NOCLOUDS
+    if target_type.lower() == "shortwave+longwave":
+        return OUT_SHORTWAVE_NOCLOUDS + OUT_LONGWAVE_NOCLOUDS
+    raise ValueError(f" Unexpected arg {target_type} for target_type")
 
 
 EXP_TYPES = ['pristine', 'clear_sky']
