@@ -200,9 +200,7 @@ def get_all_instantiable_hydra_modules(config, module_name: str):
     modules = []
     if module_name in config:
         for _, module_config in config[module_name].items():
-            if "_target_" in module_config:
-                # if 'wandb' in module_config._target_:
-                #     modules.append(hydra_instantiate(module_config, settings=wandb.Settings(start_method='fork')))
+            if module_config is not None and "_target_" in module_config:
                 modules.append(hydra_instantiate(module_config))
     return modules
 
