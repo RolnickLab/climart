@@ -8,6 +8,7 @@ import torch
 import torch.nn.functional as F
 from omegaconf import DictConfig
 from torch import Tensor, nn
+from timm.optim import create_optimizer_v2
 from pytorch_lightning import LightningModule
 
 from climart.data_loading.constants import TEST_YEARS, get_data_dims, LAYERS, LEVELS
@@ -287,15 +288,45 @@ class BaseModel(LightningModule):
     def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = None):
         return self._evaluation_step(batch, batch_idx)
 
+    def on_predict_epoch_end(self, results: List[Any]) -> Dict[int, Dict[str, Dict[str, np.ndarray]]]:
+        return self.aggregate_predictions(results)
+
+    def aggregate_predictions(self, results: List[Any]) -> Dict[int, Dict[str, Dict[str, np.ndarray]]]:
+        """
+        Args:
+         results: The list that pl.Trainer() returns when predicting, i.e.
+                        results = trainer.predict(model, datamodule)
+        Returns:
+            A dict mapping prediction_set_name_i -> {'targets': t_i, 'preds': p_i}
+                for each prediction subset i (for each prediction year).
+                E.g.: To access the shortwave heating rate predictions for year 2012:
+                    model, datamodule, trainer = ...
+                    datamodule.predict_years = "2012"
+                    results = trainer.predict(model, datamodule)
+                    results = model.aggregate_predictions(results)
+                    sw_hr_preds_2012 = results[2012]['preds']['hrsc']
+        """
+        if not isinstance(results[0], list):
+            results = [results]  # when only a single predict dataloader is passed
+        per_subset_outputs = dict()
+        for pred_set_name, predict_subset_outputs in zip(self.trainer.datamodule.predict_years, results):
+            Y, preds = self._evaluation_get_preds(predict_subset_outputs)
+            per_subset_outputs[pred_set_name]['preds'] = preds
+            per_subset_outputs[pred_set_name]['targets'] = Y
+        return per_subset_outputs
+
     # ---------------------------------------------------------------------- Optimizers and scheduler(s)
     def configure_optimizers(self):
-        parameters = get_trainable_params(model=self)
-        if self.hparams.optim is None:
-            optimizer = torch.optim.Adam(parameters, lr=1e-4)
-        else:
-            if '_target_' not in to_DictConfig(self.hparams.optim).keys():
-                raise ValueError("Please provide a _target_ class for model.optim arg!")
-            optimizer = hydra.utils.instantiate(to_DictConfig(self.hparams.optim), params=self.parameters())
+        if '_target_' in to_DictConfig(self.hparams.optimizer).keys():
+            self.hparams.optimizer.name = str(self.hparams.optimizer._target_.split('.')[-1]).lower()
+        if 'name' not in to_DictConfig(self.hparams.optimizer).keys():
+            self.log_text.info(" No optimizer was specified, defaulting to AdamW with 1e-4 lr.")
+            self.hparams.optimizer.name = 'adamw'
+
+        if hasattr(self, 'no_weight_decay'):
+            self.log_text.info(f"Model has method no_weight_decay, which will be used.")
+        optim_kwargs = {k: v for k, v in self.hparams.optimizer.items() if k not in ['name', '_target_']}
+        optimizer = create_optimizer_v2(model_or_params=self, opt=self.hparams.optimizer.name, **optim_kwargs)
         self._init_lr = optimizer.param_groups[0]['lr']
 
         if self.hparams.scheduler is None:

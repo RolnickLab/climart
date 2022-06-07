@@ -1,3 +1,7 @@
+defaults:
+  - /input_transform: repeat_global_vars.yaml
+  - /optimizer: adamw.yaml
+
 _target_: climart.models.CNNs.CNN.CNN_Net
 
 hidden_dims: [256, 256, 256]
@@ -6,16 +10,12 @@ activation_function: "Gelu"
 dropout: 0.0
 gap: True
 
-input_transform:
-  _target_: climart.data_transform.transforms.RepeatGlobalsTransform
-  exp_type: ${datamodule.exp_type}
+
+downwelling_loss_contribution: 0.5
+upwelling_loss_contribution: 0.5
+heating_rate_loss_contribution: 0
 
 monitor: ${val_metric}
 scheduler:
   _target_: torch.optim.lr_scheduler.ExponentialLR
   gamma: 0.98
-
-optim:
-  _target_: torch.optim.Adam
-  lr: 2e-4
-  weight_decay: 1e-6

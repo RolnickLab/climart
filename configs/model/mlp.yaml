@@ -1,19 +1,20 @@
 _target_: climart.models.MLP.ClimartMLP
 
+defaults:
+  - /input_transform: flatten.yaml
+  - /optimizer: adamw.yaml
+
 hidden_dims: [512, 256, 256]
 net_normalization: "layer_norm"
 activation_function: "Gelu"
 dropout: 0.0
 residual: False
-input_transform:
-  _target_: climart.data_transform.transforms.FlattenTransform
-  exp_type: ${datamodule.exp_type}
+
+downwelling_loss_contribution: 0.5
+upwelling_loss_contribution: 0.5
+heating_rate_loss_contribution: 0
 
 monitor: ${val_metric}
 scheduler:
   _target_: torch.optim.lr_scheduler.ExponentialLR
   gamma: 0.98
-optim:
-  _target_: torch.optim.Adam
-  lr: 2e-4
-  weight_decay: 1e-6
