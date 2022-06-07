@@ -40,6 +40,7 @@ class ClimartDataModule(LightningDataModule):
             data_dir: Optional[str] = None,
             train_years: str = "1999-2000",
             validation_years: str = "2005",
+            predict_years: str = "2014",
             input_transform: Optional[AbstractTransform] = None,
             normalizer: Optional[Normalizer] = None,
             batch_size: int = 64,
@@ -80,6 +81,7 @@ class ClimartDataModule(LightningDataModule):
         self._data_train: Optional[ClimART_HdF5_Dataset] = None
         self._data_val: Optional[ClimART_HdF5_Dataset] = None
         self._data_test: Optional[List[ClimART_HdF5_Dataset]] = None
+        self._data_predict: Optional[List[ClimART_HdF5_Dataset]] = None
         self._test_set_names: Optional[List[str]] = None
 
     def prepare_data(self):
@@ -108,13 +110,13 @@ class ClimartDataModule(LightningDataModule):
             self._data_train = ClimART_HdF5_Dataset(years=train_years, name='Train',
                                                     load_h5_into_mem=self.hparams.load_train_into_mem,
                                                     **dataset_kwargs)
-            # Validation set:
-            if self.hparams.validation_years is not None:
-                val_yrs = year_string_to_list(self.hparams.validation_years)
-                assert all([y in VAL_YEARS for y in val_yrs]), f'All years in --validation_years must be in {VAL_YEARS}!'
-                self._data_val = ClimART_HdF5_Dataset(years=val_yrs, name='Val',
-                                                      load_h5_into_mem=self.hparams.load_valid_into_mem,
-                                                      **dataset_kwargs)
+        # Validation set
+        if stage in ['fit', 'validate', None] and self.hparams.validation_years is not None:
+            val_yrs = year_string_to_list(self.hparams.validation_years)
+            assert all([y in VAL_YEARS for y in val_yrs]), f'All years in --validation_years must be in {VAL_YEARS}!'
+            self._data_val = ClimART_HdF5_Dataset(years=val_yrs, name='Val',
+                                                  load_h5_into_mem=self.hparams.load_valid_into_mem,
+                                                  **dataset_kwargs)
         # Test sets:
         #       - Main Present-day Test Set(s):
         #       To compute metrics for each test year -> use a separate dataloader for each of the test years (2007-14).
@@ -141,6 +143,15 @@ class ClimartDataModule(LightningDataModule):
 
             self._data_test = test_sets + ood_test_sets
 
+        # Prediction set:
+        if stage == "predict" and self.hparams.predict_years is not None:
+            dataset_kwargs["load_h5_into_mem"] = self.hparams.load_test_into_mem
+            predict_years = year_string_to_list(self.hparams.predict_years)
+            self._data_predict = [
+                ClimART_HdF5_Dataset(years=[pred_year], name=f'Predict_{pred_year}', **dataset_kwargs)
+                for pred_year in predict_years
+            ]
+
     @property
     def test_set_names(self) -> List[str]:
         if self._test_set_names is None:
@@ -156,38 +167,49 @@ class ClimartDataModule(LightningDataModule):
             self._test_set_names = test_names
         return self._test_set_names
 
+    @property
+    def predict_years(self) -> List[int]:
+        return year_string_to_list(self.hparams.predict_years)
+
+    @predict_years.setter
+    def predict_years(self, predict_years: str):
+        self.hparams.predict_years = predict_years
+
     def on_before_batch_transfer(self, batch, dataloader_idx):
         return batch
 
     def on_after_batch_transfer(self, batch, dataloader_idx):
         return batch
 
+    def _shared_dataloader_kwargs(self) -> dict:
+        shared_kwargs = dict(num_workers=int(self.hparams.num_workers), pin_memory=self.hparams.pin_memory)
+        return shared_kwargs
+
+    def _shared_eval_dataloader_kwargs(self) -> dict:
+        return dict(**self._shared_dataloader_kwargs(), batch_size=self.hparams.eval_batch_size, shuffle=False)
+
     def train_dataloader(self):
         return DataLoader(
             dataset=self._data_train,
             batch_size=self.hparams.batch_size,
-            num_workers=self.hparams.num_workers,
-            pin_memory=self.hparams.pin_memory,
             shuffle=True,
+            **self._shared_dataloader_kwargs(),
         )
 
     def val_dataloader(self):
         return DataLoader(
             dataset=self._data_val,
-            batch_size=self.hparams.eval_batch_size,
-            num_workers=self.hparams.num_workers,
-            pin_memory=self.hparams.pin_memory,
-            shuffle=False,
+            **self._shared_eval_dataloader_kwargs()
         ) if self._data_val is not None else None
 
     def test_dataloader(self) -> List[DataLoader]:
         return [DataLoader(
             dataset=data_test_subset,
-            batch_size=self.hparams.eval_batch_size,
-            num_workers=self.hparams.num_workers,
-            pin_memory=self.hparams.pin_memory,
-            shuffle=False,
+            **self._shared_eval_dataloader_kwargs()
         ) for data_test_subset in self._data_test]
 
     def predict_dataloader(self) -> EVAL_DATALOADERS:
-        pass
+        return [DataLoader(
+            dataset=data_test_subset,
+            **self._shared_eval_dataloader_kwargs()
+        ) for data_test_subset in self._data_predict]

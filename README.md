@@ -83,7 +83,10 @@ To reproduce our paper results (for seed = 7), you may choose any of our pre-def
 # Test on the OOD subsets by setting arg datamodule.{test_ood_historic, test_ood_1991, test_ood_future}=True
 python run.py seed=7 model=mlp trainer.gpus=1 
 ```
- 
+
+### Inference
+Check out [this notebook](notebooks/2022-06-06-get-predictions-pl.ipynb) for simple code on how to extract the predictions
+for each target variable from a trained model (for arbitrary years of the ClimART dataset).
 ## Tips
 
 <details><p>
@@ -104,7 +107,22 @@ python run.py seed=7 model=mlp trainer.gpus=1
 
 </p></details>
 
+<details><p>
+    <summary><b> Overriding nested Hydra config groups </b></summary>
+    <p style="padding: 10px; border: 2px solid #ff0000;">
+    Nested config groups need to be overridden with a different notation - not with a dot, since it would be interpreted as a string otherwise.
+    For example, if you want to change the optimizer in the model you want to train, you should run:
+    <code>python run.py  model=graphnet  optimizer@model.optimizer=SGD</code>
+    <br>
+</p></details>
 
+<details><p>
+    <summary><b> Local configurations </b></summary>
+    <p style="padding: 10px; border: 2px solid #ff0000;">
+    You can easily use a local config file (that,e.g., overrides data paths, working dir etc.), by putting such a yaml config
+    in the configs/local subdirectory (Hydra searches for & uses by default the file configs/local/default.yaml, if it exists)
+    
+    
 <details><p>
     <summary><b> Wandb </b></summary>
     <p style="padding: 10px; border: 2px solid #ff0000;">
