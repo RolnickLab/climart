@@ -87,6 +87,7 @@ python run.py seed=7 model=mlp trainer.gpus=1
 ### Inference
 Check out [this notebook](notebooks/2022-06-06-get-predictions-pl.ipynb) for simple code on how to extract the predictions
 for each target variable from a trained model (for arbitrary years of the ClimART dataset).
+
 ## Tips
 
 <details><p>

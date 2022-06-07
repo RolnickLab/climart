@@ -148,6 +148,7 @@ wandb/
 .autoenv
 
 out/*
+outputs/*
 *.out
 *.txt
 *__pycache__*
