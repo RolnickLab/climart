@@ -1,4 +1,3 @@
-import logging
 import os
 import time
 import warnings
@@ -12,6 +11,7 @@ from omegaconf import DictConfig, OmegaConf, open_dict
 from climart.utils.naming import get_group_name, get_detailed_name
 from climart.utils.utils import no_op, get_logger
 
+log = get_logger(__name__)
 
 def print_config(
         config,
@@ -156,8 +156,10 @@ def check_config_values(config: DictConfig):
                     new_dir = os.path.join(d, id_mdl)
                     config.callbacks.model_checkpoint.dirpath = new_dir
                     os.makedirs(new_dir, exist_ok=True)
-                    logging.info(f" Model checkpoints will be saved in: {new_dir}")
+                    log.info(f" Model checkpoints will be saved in: {new_dir}")
     else:
+        if config.save_config_to_wandb:
+            log.warning(" `save_config_to_wandb`=True but no wandb logger was found.. config will not be saved!")
         config.save_config_to_wandb = False
 
 
@@ -237,13 +239,11 @@ def log_hyperparameters(
 
 def save_hydra_config_to_wandb(config: DictConfig):
     if config.get('save_config_to_wandb'):
-        logging.info(f"Hydra config will be saved to WandB as hydra_config.yaml and in wandb run_dir: {wandb.run.dir}")
+        log.info(f"Hydra config will be saved to WandB as hydra_config.yaml and in wandb run_dir: {wandb.run.dir}")
         # files in wandb.run.dir folder get directly uploaded to wandb
         with open(os.path.join(wandb.run.dir, "hydra_config.yaml"), "w") as fp:
             OmegaConf.save(config, f=fp.name, resolve=True)
         wandb.save(os.path.join(wandb.run.dir, "hydra_config.yaml"))
-    else:
-        logging.info(f"Hydra config will NOT be saved to WandB.")
 
 
 def get_config_from_hydra_compose_overrides(overrides: list) -> DictConfig:

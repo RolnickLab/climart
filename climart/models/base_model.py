@@ -45,7 +45,7 @@ class BaseModel(LightningModule):
 
     def __init__(self,
                  datamodule_config: DictConfig = None,
-                 optim: Optional[DictConfig] = None,
+                 optimizer: Optional[DictConfig] = None,
                  scheduler: Optional[DictConfig] = None,
                  monitor: Optional[str] = None,
                  mode: str = "min",
@@ -58,7 +58,6 @@ class BaseModel(LightningModule):
                  out_layer_bias_init: Optional[np.ndarray] = None,
                  name: str = "",
                  verbose: bool = True,
-                 *args, **kwargs
                  ):
         super().__init__()
         self.log_text = get_logger(name=self.__class__.__name__ if name == '' else name)
