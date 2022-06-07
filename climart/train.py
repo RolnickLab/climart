@@ -45,7 +45,7 @@ def run_model(config: DictConfig):
     if config.get('logger') and config.logger.get("wandb"):
         wandb.finish()
 
-    log.info("Reloading model from checkpoint based on best validation stat.")
+    # log.info("Reloading model from checkpoint based on best validation stat.")
     # final_model = emulator_model.load_from_checkpoint(trainer.checkpoint_callback.best_model_path,
     #    datamodule_config=config.datamodule, output_normalizer=data_module.normalizer.output_normalizer)
     # return final_model
