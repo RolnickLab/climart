@@ -8,6 +8,9 @@
 
 defaults:
   - override /trainer: debug.yaml
+  - override /model: mlp.yaml
+  - override /logger: none.yaml
+  - override /callbacks: none.yaml
 
 debug_mode: True
 

@@ -168,7 +168,7 @@ class RT_HdF5_SingleDataset(torch.utils.data.Dataset):
         self._layer_mask = 45 if exp_type == constants.CLEAR_SKY else 14
 
         dirs = constants.get_data_subdirs(data_dir)
-        in_dir, out_dir = dirs[constants.INPUTS], dirs[exp_type]
+        in_dir, out_dir = dirs[constants.INPUTS], dirs[f'outputs_{exp_type}']
         self._in_path = os.path.join(in_dir, filename)
         self._out_path = os.path.join(out_dir, filename)
         with h5py.File(self._in_path, 'r') as h5f:

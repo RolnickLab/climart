@@ -46,8 +46,6 @@ def get_data_subdirs(data_dir: str) -> Dict[str, str]:
          OUTPUTS_PRISTINE: os.path.join(data_dir, OUTPUTS_PRISTINE),
          OUTPUTS_CLEARSKY: os.path.join(data_dir, OUTPUTS_CLEARSKY)
          }
-    d[PRISTINE] = d[OUTPUTS_PRISTINE]
-    d[CLEAR_SKY] = d[OUTPUTS_CLEARSKY]
     return d
 
 
