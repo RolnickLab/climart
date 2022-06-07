@@ -1,15 +1,15 @@
 from typing import Dict
 
 import numpy as np
-from sklearn.metrics import mean_squared_error, mean_absolute_error
-
+# from sklearn.metrics import mean_squared_error, mean_absolute_error
+from climart.data_loading.constants import get_statistics
 from climart.utils import utils
 
 log = utils.get_logger(__name__)
 
 
 def evaluate_preds(Ytrue: np.ndarray, preds: np.ndarray):
-    MSE = mean_squared_error(preds, Ytrue)
+    MSE = np.mean((preds - Ytrue) ** 2)  # mean_squared_error(preds, Ytrue)
     RMSE = np.sqrt(MSE)
     # MAE = mean_absolute_error(preds, Ytrue)
     MBE = np.mean(preds - Ytrue)
