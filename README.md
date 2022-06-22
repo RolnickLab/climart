@@ -68,7 +68,8 @@ where N is the data dimension (i.e. the number of examples of a specific year, o
  49 and 50 are the number of layers and levels in a column respectively. Dlay, 4, 82 is the number of features/channels for layers, levels, globals respectively. 
 
 For pristine-sky Dlay = 14, while for clear-sky Dlay = 45, since it contains extra aerosol related variables. The array for pristine-sky conditions can be easily accessed by slicing the first 14 features out of the stored array, e.g.:
-```      pristine_array = layers_array[:, :, : 14] ```
+```      pristine_array = layers_array[:, :, : 14] ```. This is automatically done for you when you set the atmospheric
+condition type via ```datamodule.exp_type=pristine``` or ```datamodule.exp_type=clear_sky```.
 
 
 ## Baselines
@@ -122,7 +123,7 @@ for each target variable from a trained model (for arbitrary years of the ClimAR
     <p style="padding: 10px; border: 2px solid #ff0000;">
     You can easily use a local config file (that,e.g., overrides data paths, working dir etc.), by putting such a yaml config
     in the configs/local subdirectory (Hydra searches for & uses by default the file configs/local/default.yaml, if it exists)
-    
+</p></details>   
     
 <details><p>
     <summary><b> Wandb </b></summary>
