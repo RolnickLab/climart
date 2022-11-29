@@ -17,6 +17,8 @@ class CNN_Net(BaseModel):
                  hidden_dims: Sequence[int],
                  dilation: int = 1,
                  net_normalization: str = 'none',
+                 kernels: Sequence[int] = (20, 10, 5),
+                 strides: Sequence[int] = (2, 1, 1),  # 221
                  gap: bool = False,
                  se_block: bool = False,
                  activation_function: str = 'relu',
@@ -32,8 +34,8 @@ class CNN_Net(BaseModel):
         self.linear_in_shape = 10
         self.use_linear = gap
         self.ratio = 16
-        self.kernel_list = [20, 10, 5]
-        self.stride_list = [2, 1, 1]  # 221
+        self.kernel_list = list(kernels)
+        self.stride_list = list(strides)
         self.global_average = GAP()
 
         feat_cnn_modules = []

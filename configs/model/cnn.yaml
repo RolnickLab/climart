@@ -5,6 +5,8 @@ defaults:
 _target_: climart.models.CNNs.CNN.CNN_Net
 
 hidden_dims: [256, 256, 256]
+kernels: [20, 10, 5]
+strides: [2, 1, 1]
 net_normalization: null
 activation_function: "Gelu"
 dropout: 0.0
