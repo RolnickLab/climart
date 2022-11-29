@@ -85,6 +85,14 @@ To reproduce our paper results (for seed = 7), you may choose any of our pre-def
 python run.py seed=7 model=mlp trainer.gpus=1 
 ```
 
+To reproduce the exact CNN model used in the paper, you can use the following command:
+```
+python run.py experiment=reproduce_paper2021_cnn seed=7    # feel free to run for more/other seeds
+```
+Note: You can also take a look at 
+[this WandB report](https://wandb.ai/salv47/ClimART-public-runs/reports/ClimART-paper-CNN-runs--VmlldzozMDUyOTUy)
+which shows the results of three runs of the CNN model from the paper.
+
 ### Inference
 Check out [this notebook](notebooks/2022-06-06-get-predictions-pl.ipynb) for simple code on how to extract the predictions
 for each target variable from a trained model (for arbitrary years of the ClimART dataset).

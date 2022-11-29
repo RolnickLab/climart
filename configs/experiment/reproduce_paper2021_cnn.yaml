@@ -1,0 +1,44 @@
+# @package _global_
+
+# to execute this experiment run:
+# python run.py experiment=reproduce_paper2021_cnn
+
+defaults:
+  - override /mode: exp.yaml
+  - override /trainer: default.yaml
+  - override /model: cnn.yaml
+  - override /callbacks: wandb.yaml  # feel free to change this to default.yaml or any other callback
+  - override /logger: wandb.yaml     # feel free to change this to your favorite logger
+
+# all parameters below will be merged with parameters from default configurations set above
+
+name: "ClimART-21-CNN"
+
+seed: 7
+
+trainer:
+  max_epochs: 100
+  gradient_clip_val: 1.0
+
+model:
+  hidden_dims: [200, 400, 100]
+  strides: [2, 1, 1]
+  gap: True
+  activation_function: "gelu"
+  net_normalization: "none"
+
+datamodule:
+  exp_type: "pristine"
+  batch_size: 128
+  train_years: "1990+1999+2003"
+  validation_years: "2005"
+  target_type: "shortwave"
+  # target_variable: "fluxes+heating_rate"
+
+normalizer:
+  input_normalization: "z"
+  output_normalization: null
+
+logger:
+  wandb:
+    tags: ["reproduce-climart-2021", "cnn", "reproduce-cnn"]
