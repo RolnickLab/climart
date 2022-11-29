@@ -9,6 +9,8 @@ def _shared_prefix(config: DictConfig, init_prefix: str = "") -> str:
     s += f"_{config.datamodule.get('train_years')}train" + f"_{config.datamodule.get('validation_years')}val"
     if config.normalizer.get('input_normalization'):
         s += f"_{config.normalizer.get('input_normalization').upper()}"
+    if config.normalizer.get('output_normalization'):
+        s += f"_{config.normalizer.get('output_normalization').upper()}"
     return s.lstrip('_')
 
 
@@ -22,19 +24,19 @@ def get_name_for_hydra_config_class(config: DictConfig) -> str:
 
 def get_detailed_name(config) -> str:
     """ This is a prefix for naming the runs for a more agreeable logging."""
-    s = config.get("name")
+    s = config.get("name", '')
     s = _shared_prefix(config, init_prefix=s) + '_'
     if config.model.get('dropout') > 0:
         s += f"{config.model.get('dropout')}dout_"
 
     s += config.model.get('activation_function') + '_'
-    s += get_name_for_hydra_config_class(config.model.optim) + '_'
+    s += get_name_for_hydra_config_class(config.model.optimizer) + '_'
     s += get_name_for_hydra_config_class(config.model.scheduler) + '_'
 
     s += f"{config.datamodule.get('batch_size')}bs_"
-    s += f"{config.model.optim.get('lr')}lr_"
-    if config.model.optim.get('weight_decay') > 0:
-        s += f"{config.model.optim.get('weight_decay')}wd_"
+    s += f"{config.model.optimizer.get('lr')}lr_"
+    if config.model.optimizer.get('weight_decay') > 0:
+        s += f"{config.model.optimizer.get('weight_decay')}wd_"
 
     hdims = config.model.get('hidden_dims')
     if all([h == hdims[0] for h in hdims]):

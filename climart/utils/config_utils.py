@@ -120,9 +120,7 @@ def extras(config: DictConfig) -> None:
         if not config.logger.wandb.get('group'):  # no wandb group has been assigned yet
             group_name = get_group_name(config)
             config.logger.wandb.group = group_name if len(group_name) < 128 else group_name[:128]
-        if not config.logger.wandb.get('name'):  # no wandb name has been assigned yet
-            config.logger.wandb.name = get_detailed_name(config) + '_' + time.strftime(
-                '%Hh%Mm_on_%b_%d') + '_' + config.logger.wandb.id
+        config.logger.wandb.name = get_detailed_name(config) + '_' + time.strftime('%Hh%Mm_on_%b_%d') + '_' + config.logger.wandb.id
 
     check_config_values(config)
     if USE_WANDB:

@@ -2,7 +2,7 @@ defaults:
   - default.yaml
 
 watch_model:
-  _target_: src.callbacks.wandb_callbacks.WatchModel
+  _target_: climart.utils.wandb_callbacks.WatchModel
   log: "all"
   log_freq: 100
 

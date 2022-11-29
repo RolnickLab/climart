@@ -241,8 +241,7 @@ class BaseModel(LightningModule):
     def validation_epoch_end(self, outputs: List[Any]) -> dict:
         val_time = time.time() - self._start_validation_epoch_time
         self.log("time/validation", val_time)
-        validation_outputs = outputs
-        Y_val, validation_preds = self._evaluation_get_preds(validation_outputs)
+        Y_val, validation_preds = self._evaluation_get_preds(outputs)
         val_stats = evaluate_per_target_variable(Y_val, validation_preds, data_split='val')
         target_val_metric = val_stats.pop(self.hparams.monitor)
         self.log_dict({**val_stats, 'epoch': self.current_epoch}, prog_bar=False)

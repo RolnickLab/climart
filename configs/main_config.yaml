@@ -23,8 +23,8 @@ defaults:
   - optional local: default.yaml
 
   # enable color logging
-  - override hydra/hydra_logging: colorlog
-  - override hydra/job_logging: colorlog
+  #- override hydra/hydra_logging: colorlog
+  # - override hydra/job_logging: colorlog
   # default optimizer is AdamW
   - override optimizer@model.optimizer: adamw.yaml
 
